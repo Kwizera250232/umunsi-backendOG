@@ -1,0 +1,58 @@
+{
+  "name": "umunsi-server",
+  "version": "1.0.0",
+  "description": "Umunsi News Website Backend Server with Admin Dashboard",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "server": "node start-server.js",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:seed": "node prisma/seed.js",
+    "uploads:stats": "node scripts/manage-uploads.js stats",
+    "uploads:clean": "node scripts/manage-uploads.js clean",
+    "uploads:structure": "node scripts/manage-uploads.js structure",
+    "uploads:maintenance": "node scripts/manage-uploads.js maintenance"
+  },
+  "keywords": [
+    "news",
+    "admin",
+    "dashboard",
+    "prisma",
+    "postgresql"
+  ],
+  "author": "Umunsi Team",
+  "license": "MIT",
+  "dependencies": {
+    "@prisma/client": "^5.7.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-rate-limit": "^7.1.5",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.7",
+    "prisma": "^5.7.1",
+    "sharp": "^0.34.3",
+    "slugify": "^1.6.6"
+  },
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.5",
+    "@types/multer": "^1.4.11",
+    "@types/node": "^20.10.5",
+    "@types/nodemailer": "^6.4.14",
+    "nodemon": "^3.0.2"
+  }
+}

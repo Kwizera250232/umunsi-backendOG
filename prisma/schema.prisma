@@ -1,0 +1,155 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  username   String   @unique
+  password   String
+  firstName  String?
+  lastName   String?
+  role       UserRole @default(USER)
+  avatar     String?
+  bio        String?
+  phone      String?
+  isActive   Boolean  @default(true)
+  isVerified Boolean  @default(false)
+  lastLogin  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relations
+  news News[]
+  mediaFiles MediaFile[]
+  posts Post[]
+
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  color       String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  news News[]
+  posts Post[]
+
+  @@map("categories")
+}
+
+model News {
+  id            String      @id @default(cuid())
+  title         String
+  slug          String      @unique
+  content       String
+  excerpt       String?
+  featuredImage String?
+  status        NewsStatus  @default(DRAFT)
+  publishedAt   DateTime?
+  viewCount     Int         @default(0)
+  likeCount     Int         @default(0)
+  isFeatured    Boolean     @default(false)
+  isBreaking    Boolean     @default(false)
+  isTrending    Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+
+  @@map("news")
+}
+
+model MediaFile {
+  id            String   @id @default(cuid())
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  url           String
+  thumbnailUrl  String?
+  category      String
+  tags          String[]
+  description   String?
+  isPublic      Boolean  @default(true)
+  isFeatured    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  uploadedById  String
+  uploadedBy    User     @relation(fields: [uploadedById], references: [id], onDelete: Cascade)
+
+  @@map("media_files")
+}
+
+model Post {
+  id            String      @id @default(cuid())
+  title         String
+  slug          String      @unique
+  content       String
+  excerpt       String?
+  featuredImage String?
+  status        PostStatus  @default(DRAFT)
+  publishedAt   DateTime?
+  viewCount     Int         @default(0)
+  likeCount     Int         @default(0)
+  commentCount  Int         @default(0)
+  isFeatured    Boolean     @default(false)
+  isPinned      Boolean     @default(false)
+  allowComments Boolean     @default(true)
+  tags          String[]
+  metaTitle     String?
+  metaDescription String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relations
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id])
+
+  @@map("posts")
+}
+
+// Enums
+enum UserRole {
+  ADMIN
+  EDITOR
+  AUTHOR
+  USER
+}
+
+enum NewsStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}
+
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  DELETED
+}

@@ -1,0 +1,9 @@
+✅ Database connected successfully
+⚠️  Port 5003 is busy, trying port 50031...
+🚀 Server running on port 5004
+📊 Environment: development
+🔗 Health check: http://localhost:5004/api/health
+[0mGET /api/health [32m200[0m 2.822 ms - 105[0m
+[0mGET /api/news [32m200[0m 288.925 ms - 3560[0m
+[0mGET /api/categories [32m200[0m 33.951 ms - 1998[0m
+[0mPOST /api/auth/login [32m200[0m 534.798 ms - 409[0m
