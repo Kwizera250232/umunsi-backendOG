@@ -16,14 +16,14 @@ class CategoryController {
   // Get all categories
   async getAllCategories(req, res) {
     try {
-      const { page = 1, limit = 10, search, sortBy = 'name', sortOrder = 'asc' } = req.query;
+      const { page = 1, limit = 10, search, sortBy = 'name', sortOrder = 'asc', includeInactive = 'false' } = req.query;
 
       const skip = (parseInt(page) - 1) * parseInt(limit);
       const take = parseInt(limit);
 
-      // Build where clause
+      // Build where clause - only filter by isActive if includeInactive is false
       const where = {
-        isActive: true,
+        ...(includeInactive !== 'true' && { isActive: true }),
         OR: search ? [
           { name: { contains: search, mode: 'insensitive' } },
           { description: { contains: search, mode: 'insensitive' } }

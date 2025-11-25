@@ -8,26 +8,90 @@ const router = express.Router();
 // ==================== DASHBOARD OVERVIEW ====================
 
 // Get dashboard overview statistics
-router.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
+router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
   try {
     // Get real data from database
     const [
       totalUsers,
       totalArticles,
       totalCategories,
-      totalComments,
       totalMedia,
-      totalPosts
+      totalPosts,
+      viewsAndLikes,
+      recentArticles,
+      recentUsers
     ] = await Promise.all([
       prisma.user.count(),
       prisma.news.count(),
       prisma.category.count(),
-      0, // Comments not implemented yet
       prisma.mediaFile.count(),
-      prisma.post.count()
+      prisma.post.count(),
+      // Get total views and likes from news
+      prisma.news.aggregate({
+        _sum: {
+          viewCount: true,
+          likeCount: true
+        }
+      }),
+      // Get recent articles with author info
+      prisma.news.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true
+            }
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              color: true
+            }
+          }
+        }
+      }),
+      // Get recent users
+      prisma.user.findMany({
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+        select: {
+          id: true,
+          username: true,
+          email: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          isActive: true,
+          lastLogin: true,
+          createdAt: true
+        }
+      })
     ]);
 
+    // Calculate totals
+    const totalViews = viewsAndLikes._sum.viewCount || 0;
+    const totalLikes = viewsAndLikes._sum.likeCount || 0;
+    const totalComments = 0; // Comments are not yet implemented in news model
+
     res.json({
+      // Flat structure for easy access
+      totalUsers,
+      totalArticles,
+      totalCategories,
+      totalComments,
+      totalMedia,
+      totalPosts,
+      totalViews,
+      totalLikes,
+      userGrowthPercentage: 12.5,
+      articleGrowthPercentage: 8.3,
+      // Also include nested data for backwards compatibility
       overview: {
         totalUsers,
         totalArticles,
@@ -35,37 +99,32 @@ router.get('/dashboard', authenticateToken, requireAdmin, async (req, res) => {
         totalComments,
         totalMedia,
         totalPosts,
-        userGrowthPercentage: 12.5,
-        articleGrowthPercentage: 8.3
+        totalViews,
+        totalLikes
       },
-      recentArticles: [
-        {
-          id: '1',
-          title: 'Umunsi wa Kinyarwanda 2024',
-          viewCount: 1250,
-          likeCount: 89,
-          author: { username: 'admin', firstName: 'Admin', lastName: 'User' },
-          category: { name: 'Siporo', color: '#EF4444' }
-        }
-      ],
-      recentUsers: [
-        {
-          id: '1',
-          username: 'admin',
-          email: 'admin@umunsi.com',
-          role: 'ADMIN',
-          createdAt: '2024-01-15T10:30:00Z'
-        }
-      ],
-      topArticles: [
-        {
-          id: '1',
-          title: 'Umunsi wa Kinyarwanda 2024',
-          viewCount: 1250,
-          likeCount: 89,
-          author: { username: 'admin' }
-        }
-      ]
+      recentArticles: recentArticles.map(article => ({
+        id: article.id,
+        title: article.title,
+        slug: article.slug,
+        excerpt: article.excerpt,
+        status: article.status,
+        viewCount: article.viewCount || 0,
+        likeCount: article.likeCount || 0,
+        commentCount: article.commentCount || 0,
+        createdAt: article.createdAt,
+        publishedAt: article.publishedAt,
+        author: article.author,
+        category: article.category
+      })),
+      recentUsers: recentUsers.map(user => ({
+        id: user.id,
+        username: user.username || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        email: user.email,
+        role: user.role,
+        isActive: user.isActive,
+        lastLogin: user.lastLogin,
+        createdAt: user.createdAt
+      }))
     });
   } catch (error) {
     console.error('Dashboard error:', error);

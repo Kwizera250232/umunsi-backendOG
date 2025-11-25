@@ -23,16 +23,7 @@ const PORT = process.env.PORT || 5003;
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "http://localhost:5003", "https:"],
-      scriptSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https:"],
-      fontSrc: ["'self'", "https:", "data:"],
-      connectSrc: ["'self'", "http://localhost:5003"],
-    },
-  },
+  contentSecurityPolicy: false, // Disable CSP in development to avoid blocking resources
 }));
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
