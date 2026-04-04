@@ -202,6 +202,7 @@ class AuthController {
           lastName: true,
           role: true,
           avatar: true,
+          bio: true,
           isActive: true,
           lastLogin: true,
           createdAt: true,
@@ -237,7 +238,7 @@ class AuthController {
   async updateProfile(req, res) {
     try {
       const userId = req.user.id;
-      const { firstName, lastName, avatar } = req.body;
+      const { firstName, lastName, avatar, bio } = req.body;
 
       const updatedUser = await prisma.user.update({
         where: { id: userId },
@@ -245,6 +246,7 @@ class AuthController {
           firstName: firstName !== undefined ? firstName.trim() : undefined,
           lastName: lastName !== undefined ? lastName.trim() : undefined,
           avatar: avatar !== undefined ? avatar : undefined,
+          bio: bio !== undefined ? bio.trim() : undefined,
           updatedAt: new Date()
         },
         select: {
@@ -255,7 +257,9 @@ class AuthController {
           lastName: true,
           role: true,
           avatar: true,
+          bio: true,
           isActive: true,
+          createdAt: true,
           updatedAt: true
         }
       });

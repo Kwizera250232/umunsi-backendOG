@@ -10,31 +10,29 @@ const router = express.Router();
 // Get dashboard overview statistics
 router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
   try {
-    // Get real data from database
+    // Get real data from database - using Post model (not News)
     const [
       totalUsers,
-      totalArticles,
       totalCategories,
       totalMedia,
       totalPosts,
       viewsAndLikes,
-      recentArticles,
+      recentPosts,
       recentUsers
     ] = await Promise.all([
       prisma.user.count(),
-      prisma.news.count(),
       prisma.category.count(),
       prisma.mediaFile.count(),
       prisma.post.count(),
-      // Get total views and likes from news
-      prisma.news.aggregate({
+      // Get total views and likes from posts
+      prisma.post.aggregate({
         _sum: {
           viewCount: true,
           likeCount: true
         }
       }),
-      // Get recent articles with author info
-      prisma.news.findMany({
+      // Get recent posts with author info
+      prisma.post.findMany({
         take: 5,
         orderBy: { createdAt: 'desc' },
         include: {
@@ -74,15 +72,17 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
       })
     ]);
 
+    // Comments count - set to 0 as Comment model may not exist yet
+    const totalComments = 0;
+
     // Calculate totals
     const totalViews = viewsAndLikes._sum.viewCount || 0;
     const totalLikes = viewsAndLikes._sum.likeCount || 0;
-    const totalComments = 0; // Comments are not yet implemented in news model
 
     res.json({
       // Flat structure for easy access
       totalUsers,
-      totalArticles,
+      totalArticles: totalPosts, // Use posts count as articles count
       totalCategories,
       totalComments,
       totalMedia,
@@ -94,7 +94,7 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
       // Also include nested data for backwards compatibility
       overview: {
         totalUsers,
-        totalArticles,
+        totalArticles: totalPosts,
         totalCategories,
         totalComments,
         totalMedia,
@@ -102,19 +102,19 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
         totalViews,
         totalLikes
       },
-      recentArticles: recentArticles.map(article => ({
-        id: article.id,
-        title: article.title,
-        slug: article.slug,
-        excerpt: article.excerpt,
-        status: article.status,
-        viewCount: article.viewCount || 0,
-        likeCount: article.likeCount || 0,
-        commentCount: article.commentCount || 0,
-        createdAt: article.createdAt,
-        publishedAt: article.publishedAt,
-        author: article.author,
-        category: article.category
+      recentArticles: recentPosts.map(post => ({
+        id: post.id,
+        title: post.title,
+        slug: post.slug,
+        excerpt: post.excerpt,
+        status: post.status,
+        viewCount: post.viewCount || 0,
+        likeCount: post.likeCount || 0,
+        commentCount: post._count?.comments || 0,
+        createdAt: post.createdAt,
+        publishedAt: post.publishedAt,
+        author: post.author,
+        category: post.category
       })),
       recentUsers: recentUsers.map(user => ({
         id: user.id,
@@ -138,7 +138,7 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
 // ==================== USER MANAGEMENT ====================
 
 // Get all users with pagination and filters
-router.get('/users', authenticateToken, requireAdmin, [
+router.get('/users', authenticateToken, requireEditor, [
   query('page').optional().isInt({ min: 1 }),
   query('limit').optional().isInt({ min: 1, max: 100 }),
   query('search').optional().trim(),
@@ -226,10 +226,13 @@ router.get('/users', authenticateToken, requireAdmin, [
   }
 });
 
-// Update user role and status
+// Update user role, status, and profile
 router.put('/users/:id', authenticateToken, requireAdmin, [
   body('role').optional().isIn(['ADMIN', 'EDITOR', 'AUTHOR', 'USER']),
-  body('isActive').optional().isBoolean()
+  body('isActive').optional().isBoolean(),
+  body('firstName').optional().trim().notEmpty(),
+  body('lastName').optional().trim().notEmpty(),
+  body('username').optional().trim().notEmpty()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -241,7 +244,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
     }
 
     const { id } = req.params;
-    const { role, isActive } = req.body;
+    const { role, isActive, firstName, lastName, username } = req.body;
 
     // Prevent admin from deactivating themselves
     if (id === req.user.id && isActive === false) {
@@ -255,7 +258,10 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
       where: { id },
       data: {
         ...(role && { role }),
-        ...(typeof isActive === 'boolean' && { isActive })
+        ...(typeof isActive === 'boolean' && { isActive }),
+        ...(firstName && { firstName }),
+        ...(lastName && { lastName }),
+        ...(username && { username })
       },
       select: {
         id: true,
@@ -273,12 +279,14 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
     });
 
     res.json({
+      success: true,
       message: 'User updated successfully',
       user: updatedUser
     });
   } catch (error) {
     console.error('Update user error:', error);
     res.status(500).json({
+      success: false,
       error: 'Failed to update user',
       message: 'Could not update user'
     });
@@ -317,7 +325,7 @@ router.delete('/users/:id', authenticateToken, requireAdmin, async (req, res) =>
 // ==================== ANALYTICS ====================
 
 // Get site analytics
-router.get('/analytics', authenticateToken, requireAdmin, [
+router.get('/analytics', authenticateToken, requireEditor, [
   query('period').optional().isIn(['7d', '30d', '90d', '1y']),
   query('startDate').optional().isISO8601(),
   query('endDate').optional().isISO8601()

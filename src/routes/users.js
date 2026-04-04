@@ -1,6 +1,6 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, requireAdmin, requireEditor } = require('../middleware/auth');
 const userController = require('../controllers/userController');
 
 const router = express.Router();
@@ -44,13 +44,13 @@ const handleValidationErrors = (req, res, next) => {
 // Protected routes
 router.get('/', 
   authenticateToken, 
-  requireAdmin, 
+  requireEditor, 
   userController.getAllUsers
 );
 
 router.get('/stats', 
   authenticateToken, 
-  requireAdmin, 
+  requireEditor, 
   userController.getUserStats
 );
 

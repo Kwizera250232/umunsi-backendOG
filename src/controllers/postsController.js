@@ -121,12 +121,13 @@ const getPosts = async (req, res) => {
   }
 };
 
-// Get single post by ID
+// Get single post by ID or slug
 const getPost = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const post = await prisma.post.findUnique({
+    // Try to find by ID first, then by slug
+    let post = await prisma.post.findUnique({
       where: { id },
       include: {
         author: {
@@ -149,12 +150,44 @@ const getPost = async (req, res) => {
       }
     });
 
+    // If not found by ID, try to find by slug
+    if (!post) {
+      post = await prisma.post.findUnique({
+        where: { slug: id },
+        include: {
+          author: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              username: true,
+              avatar: true
+            }
+          },
+          category: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              color: true
+            }
+          }
+        }
+      });
+    }
+
     if (!post) {
       return res.status(404).json({
         success: false,
         error: 'Post not found'
       });
     }
+
+    // Increment view count
+    await prisma.post.update({
+      where: { id: post.id },
+      data: { viewCount: { increment: 1 } }
+    });
 
     res.json({
       success: true,
