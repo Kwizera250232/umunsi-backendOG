@@ -2,8 +2,105 @@ const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const prisma = require('../database/prisma');
 const { authenticateToken, requireAdmin, requireEditor } = require('../middleware/auth');
+const { DEFAULT_MESSAGE, getMaintenanceState, setMaintenanceState } = require('../utils/maintenance');
+const { getAdsBannersState, setAdsBannersState } = require('../utils/adsBanners');
+const { getTodayViews, getDailyViews } = require('../utils/viewStats');
 
 const router = express.Router();
+
+// ==================== ADS BANNERS ====================
+
+router.get('/ads-banners', authenticateToken, requireEditor, async (req, res) => {
+  try {
+    const state = getAdsBannersState();
+    return res.json({ success: true, ...state });
+  } catch (error) {
+    console.error('Ads banners status error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch ads banners settings'
+    });
+  }
+});
+
+router.put('/ads-banners', authenticateToken, requireEditor, [
+  body('slots').isObject().withMessage('slots must be an object')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const state = setAdsBannersState({
+      slots: req.body.slots || {}
+    });
+
+    return res.json({
+      success: true,
+      message: 'Ads banners settings updated successfully',
+      ...state
+    });
+  } catch (error) {
+    console.error('Ads banners update error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update ads banners settings'
+    });
+  }
+});
+
+// ==================== MAINTENANCE MODE ====================
+
+router.get('/maintenance', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const state = getMaintenanceState();
+    return res.json({ success: true, ...state });
+  } catch (error) {
+    console.error('Maintenance status error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch maintenance status'
+    });
+  }
+});
+
+router.put('/maintenance', authenticateToken, requireAdmin, [
+  body('enabled').isBoolean().withMessage('enabled must be boolean'),
+  body('message').optional().isString().isLength({ min: 3, max: 300 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const state = setMaintenanceState({
+      enabled: req.body.enabled,
+      message: req.body.message || DEFAULT_MESSAGE,
+    });
+
+    return res.json({
+      success: true,
+      message: `Maintenance mode ${state.enabled ? 'enabled' : 'disabled'} successfully`,
+      ...state
+    });
+  } catch (error) {
+    console.error('Maintenance update error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update maintenance status'
+    });
+  }
+});
 
 // ==================== DASHBOARD OVERVIEW ====================
 
@@ -78,6 +175,8 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
     // Calculate totals
     const totalViews = viewsAndLikes._sum.viewCount || 0;
     const totalLikes = viewsAndLikes._sum.likeCount || 0;
+    const todayViews = getTodayViews();
+    const dailyViews = getDailyViews(7);
 
     res.json({
       // Flat structure for easy access
@@ -88,6 +187,8 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
       totalMedia,
       totalPosts,
       totalViews,
+      todayViews,
+      dailyViews,
       totalLikes,
       userGrowthPercentage: 12.5,
       articleGrowthPercentage: 8.3,

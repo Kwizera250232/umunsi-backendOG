@@ -18,6 +18,7 @@ const adminRoutes = require('./routes/admin');
 const mediaRoutes = require('./routes/media');
 const postsRoutes = require('./routes/posts');
 const { DEFAULT_MESSAGE, getMaintenanceState } = require('./utils/maintenance');
+const { getAdsBannersState } = require('./utils/adsBanners');
 
 const app = express();
 const prisma = new PrismaClient();
@@ -49,6 +50,7 @@ const buildMetaTags = (req, post) => {
   const safeDescription = escapeHtml((descriptionSource || '').slice(0, 280));
   const imageUrl = buildAbsoluteUrl(req, post.featuredImage || '/images/logo.png');
   const safeImageUrl = escapeHtml(imageUrl);
+  const safeImageType = escapeHtml(post.featuredImage && post.featuredImage.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
   const canonicalUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
   const safeCanonicalUrl = escapeHtml(canonicalUrl);
 
@@ -58,7 +60,12 @@ const buildMetaTags = (req, post) => {
     <meta property="og:title" content="${safeTitle}" />
     <meta property="og:description" content="${safeDescription}" />
     <meta property="og:image" content="${safeImageUrl}" />
+    <meta property="og:image:secure_url" content="${safeImageUrl}" />
+    <meta property="og:image:type" content="${safeImageType}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
     <meta property="og:url" content="${safeCanonicalUrl}" />
+    <meta property="og:locale" content="rw_RW" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${safeTitle}" />
     <meta name="twitter:description" content="${safeDescription}" />
@@ -339,6 +346,20 @@ app.get(['/api', '/api/'], (req, res) => {
     message: 'Umunsi API is running',
     health: '/api/health'
   });
+});
+
+// Public ads banner settings for frontend rendering
+app.get('/api/ads-banners', (req, res) => {
+  try {
+    const state = getAdsBannersState();
+    res.json({ success: true, ...state });
+  } catch (error) {
+    console.error('Error fetching public ads banners:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch ads banners'
+    });
+  }
 });
 
 // API Routes
