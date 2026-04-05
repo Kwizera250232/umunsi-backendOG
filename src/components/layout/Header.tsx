@@ -1,13 +1,16 @@
-import { Search, Menu, X, Calendar, Thermometer, Bell, User, ChevronDown, TrendingUp, Loader2, MoreHorizontal } from 'lucide-react';
+import { Search, Menu, X, Calendar, Thermometer, Bell, User, ChevronDown, TrendingUp, Loader2, MoreHorizontal, LogOut, Settings } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiClient, Category } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Header = () => {
   const navigate = useNavigate();
+  const { isAuthenticated, user, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -87,13 +90,67 @@ const Header = () => {
                 <span className="hidden sm:inline">Inyandiko</span>
               </Link>
               <div className="h-3 w-px bg-[#2b2f36]"></div>
-              <Link 
-                to="/login" 
-                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-[#fcd535] to-[#f0b90b] text-[#0b0e11] font-semibold rounded-lg hover:from-[#f0b90b] hover:to-[#fcd535] transition-all transform hover:scale-105"
-              >
-                <User size={14} />
-                <span>Kwinjira</span>
-              </Link>
+              
+              {isAuthenticated && user ? (
+                <div className="relative">
+                  <button
+                    onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
+                    className="flex items-center space-x-2 px-3 py-1.5 bg-[#1e2329] border border-[#2b2f36] rounded-lg hover:border-[#fcd535]/50 transition-all"
+                  >
+                    <div className="w-6 h-6 bg-gradient-to-br from-[#fcd535] to-[#f0b90b] rounded-full flex items-center justify-center">
+                      <span className="text-[#0b0e11] text-xs font-bold">
+                        {user.firstName?.[0]}{user.lastName?.[0]}
+                      </span>
+                    </div>
+                    <span className="text-gray-300 text-xs hidden sm:inline">{user.firstName}</span>
+                    <ChevronDown size={12} className="text-gray-500" />
+                  </button>
+                  
+                  {isUserMenuOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-48 bg-[#181a20] border border-[#2b2f36] rounded-xl shadow-xl overflow-hidden z-50">
+                      <div className="p-3 border-b border-[#2b2f36]">
+                        <p className="text-white text-sm font-medium">{user.firstName} {user.lastName}</p>
+                        <p className="text-gray-500 text-xs">{user.email}</p>
+                      </div>
+                      <div className="py-1">
+                        <Link 
+                          to="/profile" 
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center space-x-2 px-3 py-2 text-gray-300 hover:bg-[#1e2329] hover:text-[#fcd535] transition-colors"
+                        >
+                          <User size={14} />
+                          <span>Profile</span>
+                        </Link>
+                        {(user.role === 'ADMIN' || user.role === 'EDITOR') && (
+                          <Link 
+                            to="/admin" 
+                            onClick={() => setIsUserMenuOpen(false)}
+                            className="flex items-center space-x-2 px-3 py-2 text-gray-300 hover:bg-[#1e2329] hover:text-[#fcd535] transition-colors"
+                          >
+                            <Settings size={14} />
+                            <span>Admin Dashboard</span>
+                          </Link>
+                        )}
+                        <button 
+                          onClick={() => { logout(); setIsUserMenuOpen(false); navigate('/'); }}
+                          className="w-full flex items-center space-x-2 px-3 py-2 text-gray-300 hover:bg-[#1e2329] hover:text-red-400 transition-colors"
+                        >
+                          <LogOut size={14} />
+                          <span>Gusohoka</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <Link 
+                  to="/login" 
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-[#fcd535] to-[#f0b90b] text-[#0b0e11] font-semibold rounded-lg hover:from-[#f0b90b] hover:to-[#fcd535] transition-all transform hover:scale-105"
+                >
+                  <User size={14} />
+                  <span>Kwinjira</span>
+                </Link>
+              )}
             </div>
           </div>
         </div>

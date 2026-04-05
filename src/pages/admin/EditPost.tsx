@@ -96,7 +96,7 @@ const EditPost: React.FC = () => {
           tags: [],
           description: 'Current featured image',
           uploadedAt: new Date().toISOString(),
-          uploadedBy: { id: 'temp', firstName: 'Current', lastName: 'User' }
+          uploadedBy: { id: 'temp', firstName: 'Current', lastName: 'User', username: 'current-user' }
         });
       }
     } catch (error) {

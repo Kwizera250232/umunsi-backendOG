@@ -11,6 +11,7 @@ import PostPage from './pages/PostPage';
 import Newsletter from './pages/Newsletter';
 import Login from './pages/Login';
 import TestLogin from './pages/TestLogin';
+import Profile from './pages/Profile';
 import AdminLayout from './components/layout/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import Articles from './pages/admin/Articles';
@@ -28,6 +29,7 @@ import Posts from './pages/admin/Posts';
 import AddPost from './pages/admin/AddPost';
 import EditPost from './pages/admin/EditPost';
 import PostDetail from './pages/admin/PostDetail';
+import Roles from './pages/admin/Roles';
 import { withAuth, withAdmin, withEditor } from './contexts/AuthContext';
 
 // Create wrapped components
@@ -47,6 +49,8 @@ const ProtectedPosts = withEditor(Posts);
 const ProtectedAddPost = withEditor(AddPost);
 const ProtectedEditPost = withEditor(EditPost);
 const ProtectedPostDetail = withEditor(PostDetail);
+const ProtectedRoles = withAdmin(Roles);
+const ProtectedProfile = withAuth(Profile);
 
 function App() {
   return (
@@ -77,6 +81,7 @@ function App() {
                 <Route path="/post/:slug" element={<PostPage />} />
                 <Route path="/article/:id" element={<PostPage />} />
                 <Route path="/newsletter" element={<Newsletter />} />
+                <Route path="/profile" element={<ProtectedProfile />} />
               </Routes>
             </Layout>
           } />
@@ -92,6 +97,7 @@ function App() {
             <Route path="featured-news" element={<ProtectedFeaturedNews />} />
             <Route path="categories" element={<ProtectedCategories />} />
             <Route path="users" element={<ProtectedUsers />} />
+            <Route path="roles" element={<ProtectedRoles />} />
             <Route path="analytics" element={<ProtectedAnalytics />} />
             <Route path="logs" element={<ProtectedLogs />} />
             <Route path="settings" element={<ProtectedSettings />} />

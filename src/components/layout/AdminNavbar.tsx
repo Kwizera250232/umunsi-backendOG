@@ -147,9 +147,9 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
 
               {/* Notifications */}
               <button className="relative p-2.5 text-gray-400 hover:text-white hover:bg-[#2b2f36] rounded-xl transition-all">
-                <Bell size={20} />
+                  <Bell size={20} />
                 <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#fcd535] rounded-full"></span>
-              </button>
+                </button>
 
               {/* User menu */}
               <div className="relative">
@@ -270,23 +270,23 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
           </div>
 
           <nav className="p-4 space-y-1">
-            {navigation.map((item) => {
-              const Icon = item.icon;
+              {navigation.map((item) => {
+                const Icon = item.icon;
               const isActive = location.pathname === item.href || 
                 (item.href !== '/admin' && location.pathname.startsWith(item.href));
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`
+                return (
+                  <Link
+                    key={item.name}
+                    to={item.href}
+                    className={`
                     group flex items-center px-3 py-3 rounded-xl transition-all duration-200 relative
-                    ${isActive
+                      ${isActive
                       ? 'bg-[#1e2329] text-[#fcd535]'
                       : 'text-gray-400 hover:bg-[#1e2329] hover:text-white'
-                    }
-                  `}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                >
+                      }
+                    `}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
                   {isActive && (
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 bg-[#fcd535] rounded-r-full" />
                   )}
@@ -296,11 +296,11 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
                       : 'bg-[#2b2f36]/50 text-gray-400 group-hover:bg-[#2b2f36] group-hover:text-white'
                   }`}>
                     <Icon className="w-4 h-4" />
-                  </div>
+                    </div>
                   <span className="text-sm font-medium">{item.name}</span>
-                </Link>
-              );
-            })}
+                  </Link>
+                );
+              })}
           </nav>
 
           {/* Mobile user section */}

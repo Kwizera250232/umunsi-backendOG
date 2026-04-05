@@ -23,13 +23,13 @@ interface Category {
   id: string;
   name: string;
   slug: string;
-  description: string;
+  description?: string;
   color: string;
-  icon: string;
-  articleCount: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
+  icon?: string;
+  articleCount?: number;
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
   parentId?: string;
   children?: Category[];
 }
@@ -230,7 +230,7 @@ const Categories = () => {
       if (response?.success && response?.category) {
         setCategories(prev => prev.map(cat => 
           cat.id === id ? { ...cat, isActive: response.category.isActive } : cat
-        ));
+    ));
       } else {
         setError('Failed to update category status');
       }
@@ -481,7 +481,7 @@ const Categories = () => {
         ) : (
           <table className="w-full">
             <thead className="bg-[#1e2329] border-b border-[#2b2f36]">
-              <tr>
+                <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Category</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Description</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-400 uppercase">Articles</th>

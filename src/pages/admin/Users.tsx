@@ -54,6 +54,21 @@ const Users = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('list');
   const [sortBy, setSortBy] = useState<string>('newest');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
+  
+  // Modal states
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    username: '',
+    firstName: '',
+    lastName: '',
+    role: 'USER' as 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER'
+  });
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -94,37 +109,145 @@ const Users = () => {
     }
   };
 
-  const handleDeleteUser = (id: string) => {
+  const handleDeleteUser = async (id: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
+      try {
+        await apiClient.deleteUser(id);
       setUsers(users.filter(user => user.id !== id));
+      } catch (error) {
+        console.error('Error deleting user:', error);
+        alert('Failed to delete user');
+      }
     }
   };
 
-  const handleToggleUserStatus = (id: string, currentStatus: boolean) => {
-    setUsers(users.map(user => user.id === id ? { ...user, isActive: !currentStatus } : user));
+  const handleToggleUserStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      await apiClient.updateUser(id, { isActive: !currentStatus });
+      setUsers(users.map(user => user.id === id ? { ...user, isActive: !currentStatus } : user));
+    } catch (error) {
+      console.error('Error toggling user status:', error);
+      alert('Failed to update user status');
+    }
   };
 
-  const handleToggleVerification = (id: string, currentStatus: boolean) => {
-    setUsers(users.map(user => user.id === id ? { ...user, isVerified: !currentStatus } : user));
+  const handleToggleVerification = async (id: string, currentStatus: boolean) => {
+    try {
+      await apiClient.updateUser(id, { isVerified: !currentStatus });
+      setUsers(users.map(user => user.id === id ? { ...user, isVerified: !currentStatus } : user));
+    } catch (error) {
+      console.error('Error toggling verification:', error);
+      alert('Failed to update verification status');
+    }
   };
 
-  const handleBulkAction = (action: string) => {
+  const handleBulkAction = async (action: string) => {
     if (selectedUsers.length === 0) return;
 
+    try {
     switch (action) {
       case 'activate':
-        setUsers(users.map(user => selectedUsers.includes(user.id) ? { ...user, isActive: true } : user));
+          await Promise.all(selectedUsers.map(id => apiClient.updateUser(id, { isActive: true })));
+          setUsers(users.map(user => selectedUsers.includes(user.id) ? { ...user, isActive: true } : user));
         break;
       case 'deactivate':
-        setUsers(users.map(user => selectedUsers.includes(user.id) ? { ...user, isActive: false } : user));
+          await Promise.all(selectedUsers.map(id => apiClient.updateUser(id, { isActive: false })));
+          setUsers(users.map(user => selectedUsers.includes(user.id) ? { ...user, isActive: false } : user));
         break;
       case 'delete':
-        if (window.confirm(`Delete ${selectedUsers.length} users?`)) {
+          if (window.confirm(`Delete ${selectedUsers.length} users?`)) {
+            await Promise.all(selectedUsers.map(id => apiClient.deleteUser(id)));
           setUsers(users.filter(user => !selectedUsers.includes(user.id)));
         }
         break;
+      }
+    } catch (error) {
+      console.error('Error performing bulk action:', error);
+      alert('Failed to perform action');
     }
     setSelectedUsers([]);
+  };
+
+  const handleAddUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setFormError('');
+
+    try {
+      const response = await apiClient.createUser({
+        email: formData.email,
+        password: formData.password,
+        username: formData.username || formData.email.split('@')[0],
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: formData.role
+      });
+      
+      if (response.success) {
+        await fetchUsers();
+        setShowAddModal(false);
+        resetForm();
+      }
+    } catch (error: any) {
+      console.error('Error creating user:', error);
+      setFormError(error.message || 'Failed to create user');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEditUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    
+    setSubmitting(true);
+    setFormError('');
+
+    try {
+      const response = await apiClient.updateUser(editingUser.id, {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        role: formData.role,
+        isActive: editingUser.isActive
+      });
+      
+      if (response.success || response.user) {
+        await fetchUsers();
+        setShowEditModal(false);
+        setEditingUser(null);
+        resetForm();
+      }
+    } catch (error: any) {
+      console.error('Error updating user:', error);
+      setFormError(error.message || 'Failed to update user');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const openEditModal = (user: User) => {
+    setEditingUser(user);
+    setFormData({
+      email: user.email,
+      password: '',
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      role: user.role
+    });
+    setShowEditModal(true);
+  };
+
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      password: '',
+      username: '',
+      firstName: '',
+      lastName: '',
+      role: 'USER'
+    });
+    setFormError('');
   };
 
   const formatDate = (dateString: string) => {
@@ -209,7 +332,10 @@ const Users = () => {
             <p className="text-gray-400 mt-1">Manage user accounts and permissions</p>
             </div>
           <div className="flex items-center space-x-3">
-            <button className="px-5 py-2.5 bg-[#fcd535] text-[#0b0e11] font-semibold rounded-xl hover:bg-[#f0b90b] transition-all flex items-center space-x-2">
+            <button 
+              onClick={() => { resetForm(); setShowAddModal(true); }}
+              className="px-5 py-2.5 bg-[#fcd535] text-[#0b0e11] font-semibold rounded-xl hover:bg-[#f0b90b] transition-all flex items-center space-x-2"
+            >
               <UserPlus className="w-4 h-4" />
               <span>Add User</span>
               </button>
@@ -326,13 +452,13 @@ const Users = () => {
                 <button
                   onClick={() => setViewMode('list')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-[#fcd535] text-[#0b0e11]' : 'text-gray-400 hover:text-white'}`}
-              >
+                >
                 <List className="w-4 h-4" />
                 </button>
           <button
                   onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-[#fcd535] text-[#0b0e11]' : 'text-gray-400 hover:text-white'}`}
-              >
+                >
                 <Grid3X3 className="w-4 h-4" />
           </button>
               </div>
@@ -381,10 +507,10 @@ const Users = () => {
                         onChange={(e) => {
                         if (e.target.checked) setSelectedUsers([...selectedUsers, user.id]);
                         else setSelectedUsers(selectedUsers.filter(id => id !== user.id));
-                      }}
+                        }}
                       className="mt-3 w-4 h-4 rounded bg-[#2b2f36] border-[#2b2f36] text-[#fcd535]"
-                    />
-                    
+                      />
+                      
                     <div className="w-12 h-12 bg-gradient-to-br from-[#fcd535] to-[#f0b90b] rounded-xl flex items-center justify-center flex-shrink-0">
                       <span className="text-[#0b0e11] font-bold">{user.firstName[0]}{user.lastName[0]}</span>
                       </div>
@@ -430,7 +556,10 @@ const Users = () => {
                     <button className="p-2 text-gray-500 hover:text-[#fcd535] hover:bg-[#2b2f36] rounded-lg transition-colors">
                         <Eye className="w-4 h-4" />
                       </button>
-                    <button className="p-2 text-gray-500 hover:text-blue-400 hover:bg-[#2b2f36] rounded-lg transition-colors">
+                    <button 
+                      onClick={() => openEditModal(user)}
+                      className="p-2 text-gray-500 hover:text-blue-400 hover:bg-[#2b2f36] rounded-lg transition-colors"
+                    >
                         <Edit className="w-4 h-4" />
                       </button>
                       <button
@@ -468,9 +597,9 @@ const Users = () => {
                           onChange={(e) => {
                         if (e.target.checked) setSelectedUsers([...selectedUsers, user.id]);
                         else setSelectedUsers(selectedUsers.filter(id => id !== user.id));
-                      }}
+                          }}
                       className="w-4 h-4 rounded bg-[#2b2f36] border-[#2b2f36] text-[#fcd535]"
-                    />
+                        />
                     <span className={`px-2 py-0.5 text-xs font-medium rounded-md border flex items-center space-x-1 ${getRoleBadge(user.role)}`}>
                           {getRoleIcon(user.role)}
                           <span>{user.role}</span>
@@ -507,8 +636,8 @@ const Users = () => {
                 <div className="px-4 py-3 bg-[#181a20] border-t border-[#2b2f36] flex items-center justify-between">
                   <div className="flex items-center space-x-1">
                     <button className="p-1.5 text-gray-500 hover:text-[#fcd535] hover:bg-[#2b2f36] rounded-lg"><Eye className="w-4 h-4" /></button>
-                    <button className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-[#2b2f36] rounded-lg"><Edit className="w-4 h-4" /></button>
-                    <button className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-[#2b2f36] rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                    <button onClick={() => openEditModal(user)} className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-[#2b2f36] rounded-lg"><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => handleDeleteUser(user.id)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-[#2b2f36] rounded-lg"><Trash2 className="w-4 h-4" /></button>
                       </div>
                   <button className="p-1.5 text-gray-500 hover:text-white hover:bg-[#2b2f36] rounded-lg">
                         <MoreHorizontal className="w-4 h-4" />
@@ -531,6 +660,212 @@ const Users = () => {
           </div>
         </div>
       </div>
+
+      {/* Add User Modal */}
+      {showAddModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#181a20] rounded-2xl border border-[#2b2f36] w-full max-w-md mx-4 overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#2b2f36] flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Add New User</h3>
+              <button onClick={() => setShowAddModal(false)} className="text-gray-400 hover:text-white">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAddUser} className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                  {formError}
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                  required
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Password</label>
+                <input
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                  required
+                  minLength={6}
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Role</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                  className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                >
+                  <option value="USER">User</option>
+                  <option value="AUTHOR">Author</option>
+                  <option value="EDITOR">Editor</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
+              
+              <div className="flex items-center justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-[#fcd535] text-[#0b0e11] font-semibold rounded-xl hover:bg-[#f0b90b] transition-all disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {submitting ? (
+                    <div className="w-4 h-4 border-2 border-[#0b0e11]/30 border-t-[#0b0e11] rounded-full animate-spin" />
+                  ) : (
+                    <UserPlus className="w-4 h-4" />
+                  )}
+                  <span>Add User</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-[#181a20] rounded-2xl border border-[#2b2f36] w-full max-w-md mx-4 overflow-hidden">
+            <div className="px-6 py-4 border-b border-[#2b2f36] flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Edit User</h3>
+              <button onClick={() => { setShowEditModal(false); setEditingUser(null); }} className="text-gray-400 hover:text-white">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleEditUser} className="p-6 space-y-4">
+              {formError && (
+                <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+                  {formError}
+                </div>
+              )}
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  disabled
+                  className="w-full px-3 py-2.5 bg-[#1e2329] border border-[#2b2f36] rounded-xl text-gray-500 cursor-not-allowed"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Role</label>
+                <select
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                  className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                >
+                  <option value="USER">User</option>
+                  <option value="AUTHOR">Author</option>
+                  <option value="EDITOR">Editor</option>
+                  <option value="ADMIN">Admin</option>
+                </select>
+              </div>
+
+              <div className="flex items-center justify-between p-3 bg-[#2b2f36] rounded-xl">
+                <span className="text-gray-400 text-sm">Active Status</span>
+                <button
+                  type="button"
+                  onClick={() => setEditingUser({ ...editingUser, isActive: !editingUser.isActive })}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${editingUser.isActive ? 'bg-emerald-500' : 'bg-gray-600'}`}
+                >
+                  <span className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${editingUser.isActive ? 'right-1' : 'left-1'}`} />
+                </button>
+              </div>
+              
+              <div className="flex items-center justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowEditModal(false); setEditingUser(null); }}
+                  className="px-4 py-2 text-gray-400 hover:text-white transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-5 py-2 bg-[#fcd535] text-[#0b0e11] font-semibold rounded-xl hover:bg-[#f0b90b] transition-all disabled:opacity-50 flex items-center space-x-2"
+                >
+                  {submitting ? (
+                    <div className="w-4 h-4 border-2 border-[#0b0e11]/30 border-t-[#0b0e11] rounded-full animate-spin" />
+                  ) : (
+                    <Edit className="w-4 h-4" />
+                  )}
+                  <span>Update User</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

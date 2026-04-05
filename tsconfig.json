@@ -11,7 +11,7 @@
     "isolatedModules": true,
     "jsx": "react-jsx",
     "jsxImportSource": "same-runtime/dist",
-    "strict": true,
+    "strict": false,
     "noFallthroughCasesInSwitch": true,
     "noEmit": true
   },

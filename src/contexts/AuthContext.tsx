@@ -241,7 +241,7 @@ export const withAuth = <P extends object>(
 ) => {
   const WrappedComponent = (props: P) => {
     const { isAuthenticated, hasPermission, hasRole, isLoading, user } = useAuth();
-    
+
     // Check localStorage as fallback
     const storedUser = localStorage.getItem('umunsi_user');
     const storedToken = localStorage.getItem('umunsi_token');
@@ -283,20 +283,20 @@ export const withAuth = <P extends object>(
       const requiredRoleLevel = roleHierarchy[requiredRole] || 0;
       
       if (userRoleLevel < requiredRoleLevel) {
-        return (
-          <div className="flex items-center justify-center h-screen">
-            <div className="text-center">
+      return (
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
               <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
-              <p className="text-gray-600 mb-4">This page requires {requiredRole} role.</p>
-              <button
-                onClick={() => window.history.back()}
-                className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
-              >
-                Go Back
-              </button>
-            </div>
+            <p className="text-gray-600 mb-4">This page requires {requiredRole} role.</p>
+            <button
+              onClick={() => window.history.back()}
+              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700"
+            >
+              Go Back
+            </button>
           </div>
-        );
+        </div>
+      );
       }
     }
 

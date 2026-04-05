@@ -369,6 +369,53 @@ class ApiClient {
     }
   }
 
+  // Profile Methods
+  async getProfile(): Promise<{ success: boolean; user: User }> {
+    const response = await this.request<{ success: boolean; user: User }>('/auth/me');
+    return response;
+  }
+
+  async updateProfile(profileData: {
+    firstName?: string;
+    lastName?: string;
+    bio?: string;
+    avatar?: string;
+  }): Promise<{ success: boolean; user: User; message?: string }> {
+    const response = await this.request<{ success: boolean; user: User; message?: string }>('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+    return response;
+  }
+
+  async uploadAvatar(file: File): Promise<{ success: boolean; avatar: string; user: User; message?: string }> {
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    const response = await fetch(`${this.baseUrl}/auth/avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Failed to upload avatar');
+    }
+
+    return response.json();
+  }
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ success: boolean; message?: string }> {
+    const response = await this.request<{ success: boolean; message?: string }>('/auth/change-password', {
+      method: 'PUT',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    return response;
+  }
+
   async getCurrentUser(): Promise<AuthResponse['user']> {
     const response = await this.request<AuthResponse['user']>('/auth/me');
     return response;
@@ -410,15 +457,25 @@ class ApiClient {
     page?: number;
     limit?: number;
     category?: string;
+    categoryId?: string;
     search?: string;
     status?: string;
+    isBreaking?: boolean;
+    isFeatured?: boolean;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
   }): Promise<PaginatedResponse<Article>> {
     const searchParams = new URLSearchParams();
     if (params?.page) searchParams.append('page', params.page.toString());
     if (params?.limit) searchParams.append('limit', params.limit.toString());
     if (params?.category) searchParams.append('category', params.category);
+    if (params?.categoryId) searchParams.append('category', params.categoryId);
     if (params?.search) searchParams.append('search', params.search);
     if (params?.status) searchParams.append('status', params.status);
+    if (params?.isBreaking !== undefined) searchParams.append('isBreaking', params.isBreaking.toString());
+    if (params?.isFeatured !== undefined) searchParams.append('isFeatured', params.isFeatured.toString());
+    if (params?.sortBy) searchParams.append('sortBy', params.sortBy);
+    if (params?.sortOrder) searchParams.append('sortOrder', params.sortOrder);
 
     const response = await this.request<{news: Article[], pagination: any}>(
       `/news?${searchParams.toString()}`
@@ -517,8 +574,23 @@ class ApiClient {
     return response;
   }
 
-  async updateUser(id: string, userData: Partial<User>): Promise<User> {
-    const response = await this.request<User>(`/users/${id}`, {
+  async createUser(userData: {
+    email: string;
+    password: string;
+    username?: string;
+    firstName?: string;
+    lastName?: string;
+    role?: 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER';
+  }): Promise<{ success: boolean; user: User; message?: string }> {
+    const response = await this.request<{ success: boolean; user: User; message?: string }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+    return response;
+  }
+
+  async updateUser(id: string, userData: Partial<User>): Promise<{ success: boolean; user: User; message?: string }> {
+    const response = await this.request<{ success: boolean; user: User; message?: string }>(`/admin/users/${id}`, {
       method: 'PUT',
       body: JSON.stringify(userData),
     });
@@ -526,7 +598,7 @@ class ApiClient {
   }
 
   async deleteUser(id: string): Promise<void> {
-    await this.request(`/users/${id}`, { method: 'DELETE' });
+    await this.request(`/admin/users/${id}`, { method: 'DELETE' });
   }
 
   // Analytics Methods

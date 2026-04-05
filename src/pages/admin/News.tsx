@@ -91,7 +91,7 @@ const News: React.FC = () => {
         limit: itemsPerPage,
         search: searchTerm,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
-        categoryId: categoryFilter === 'ALL' ? undefined : categoryFilter,
+        category: categoryFilter === 'ALL' ? undefined : categoryFilter,
         sortBy,
         sortOrder
       });

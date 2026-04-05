@@ -218,27 +218,27 @@ const Analytics = () => {
             <h3 className="text-lg font-semibold text-white">Top Performing Articles</h3>
           </div>
           <div className="p-6 space-y-4">
-            {analyticsData?.topArticles.map((article, index) => (
+              {analyticsData?.topArticles.map((article, index) => (
               <div key={article.id} className="flex items-center justify-between group">
                 <div className="flex items-center space-x-3 flex-1 min-w-0">
                   <span className="w-7 h-7 bg-[#2b2f36] rounded-lg flex items-center justify-center text-xs font-bold text-gray-400 flex-shrink-0">
-                    {index + 1}
-                  </span>
+                      {index + 1}
+                    </span>
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-white truncate group-hover:text-[#fcd535] transition-colors">
-                      {article.title}
-                    </p>
-                    <p className="text-xs text-gray-500">{formatNumber(article.views)} views</p>
+                        {article.title}
+                      </p>
+                      <p className="text-xs text-gray-500">{formatNumber(article.views)} views</p>
+                    </div>
+                  </div>
+                <div className="w-24 bg-[#2b2f36] rounded-full h-2 ml-4 flex-shrink-0">
+                    <div 
+                    className="bg-[#fcd535] h-2 rounded-full transition-all"
+                      style={{ width: `${(article.views / analyticsData.topArticles[0].views) * 100}%` }}
+                    ></div>
                   </div>
                 </div>
-                <div className="w-24 bg-[#2b2f36] rounded-full h-2 ml-4 flex-shrink-0">
-                  <div 
-                    className="bg-[#fcd535] h-2 rounded-full transition-all"
-                    style={{ width: `${(article.views / analyticsData.topArticles[0].views) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
 
@@ -254,26 +254,26 @@ const Analytics = () => {
             {analyticsData?.topCategories.map((category) => (
               <div key={category.name} className="flex items-center justify-between group">
                 <div className="flex items-center space-x-3">
-                  <div 
+                    <div 
                     className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: category.color }}
-                  ></div>
-                  <div>
+                      style={{ backgroundColor: category.color }}
+                    ></div>
+                    <div>
                     <p className="text-sm font-medium text-white group-hover:text-[#fcd535] transition-colors">{category.name}</p>
-                    <p className="text-xs text-gray-500">{formatNumber(category.views)} views</p>
+                      <p className="text-xs text-gray-500">{formatNumber(category.views)} views</p>
+                    </div>
+                  </div>
+                <div className="w-24 bg-[#2b2f36] rounded-full h-2">
+                    <div 
+                    className="h-2 rounded-full transition-all"
+                      style={{ 
+                        width: `${(category.views / analyticsData.topCategories[0].views) * 100}%`,
+                        backgroundColor: category.color
+                      }}
+                    ></div>
                   </div>
                 </div>
-                <div className="w-24 bg-[#2b2f36] rounded-full h-2">
-                  <div 
-                    className="h-2 rounded-full transition-all"
-                    style={{ 
-                      width: `${(category.views / analyticsData.topCategories[0].views) * 100}%`,
-                      backgroundColor: category.color
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>
@@ -290,21 +290,21 @@ const Analytics = () => {
           </div>
           <div className="p-6 space-y-3">
             {analyticsData?.userGrowth.map((data) => (
-              <div key={data.date} className="flex items-center justify-between">
+                <div key={data.date} className="flex items-center justify-between">
                 <span className="text-sm text-gray-400 w-24">
                   {new Date(data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </span>
+                  </span>
                 <div className="flex items-center space-x-4 flex-1">
                   <div className="flex-1 bg-[#2b2f36] rounded-full h-2">
-                    <div 
+                      <div 
                       className="bg-blue-500 h-2 rounded-full transition-all"
-                      style={{ width: `${(data.users / analyticsData.userGrowth[analyticsData.userGrowth.length - 1].users) * 100}%` }}
-                    ></div>
-                  </div>
+                        style={{ width: `${(data.users / analyticsData.userGrowth[analyticsData.userGrowth.length - 1].users) * 100}%` }}
+                      ></div>
+                    </div>
                   <span className="text-sm font-medium text-white w-16 text-right">{formatNumber(data.users)}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
 
@@ -318,21 +318,21 @@ const Analytics = () => {
           </div>
           <div className="p-6 space-y-3">
             {analyticsData?.articleGrowth.map((data) => (
-              <div key={data.date} className="flex items-center justify-between">
+                <div key={data.date} className="flex items-center justify-between">
                 <span className="text-sm text-gray-400 w-24">
                   {new Date(data.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </span>
+                  </span>
                 <div className="flex items-center space-x-4 flex-1">
                   <div className="flex-1 bg-[#2b2f36] rounded-full h-2">
-                    <div 
+                      <div 
                       className="bg-emerald-500 h-2 rounded-full transition-all"
-                      style={{ width: `${(data.articles / analyticsData.articleGrowth[analyticsData.articleGrowth.length - 1].articles) * 100}%` }}
-                    ></div>
-                  </div>
+                        style={{ width: `${(data.articles / analyticsData.articleGrowth[analyticsData.articleGrowth.length - 1].articles) * 100}%` }}
+                      ></div>
+                    </div>
                   <span className="text-sm font-medium text-white w-16 text-right">{data.articles}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
       </div>

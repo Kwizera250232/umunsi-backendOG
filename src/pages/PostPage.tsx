@@ -28,7 +28,7 @@ const getServerBaseUrl = () => {
 };
 
 const PostPage = () => {
-  const { slug } = useParams<{ slug: string }>();
+  const { slug, id } = useParams<{ slug?: string; id?: string }>();
   const { user, isAuthenticated } = useAuth();
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,34 +45,41 @@ const PostPage = () => {
   const [newComment, setNewComment] = useState('');
   const [submittingComment, setSubmittingComment] = useState(false);
 
+  // Get the identifier (either slug or id)
+  const postIdentifier = slug || id;
+
   useEffect(() => {
-    if (slug) {
+    if (postIdentifier) {
       fetchPost();
       window.scrollTo(0, 0);
     }
-  }, [slug]);
+  }, [postIdentifier]);
 
   const fetchPost = async () => {
     try {
       setLoading(true);
       setError(null);
       
-      const postsResponse = await apiClient.getPosts({ limit: 100, status: 'PUBLISHED' });
-      const foundPost = postsResponse?.data?.find(p => p.slug === slug);
+      // Fetch post directly by ID or slug (backend supports both)
+      const foundPost = await apiClient.getPost(postIdentifier!);
       
       if (foundPost) {
         setPost(foundPost);
         setLikeCount(foundPost.likeCount || 0);
         
-        // Get latest posts for sidebar
-        setLatestPosts(postsResponse.data.filter(p => p.id !== foundPost.id).slice(0, 5));
-        
-        // Get related posts from same category
-        if (foundPost.category) {
-          const related = postsResponse.data.filter(
-            p => p.category?.id === foundPost.category?.id && p.id !== foundPost.id
-          ).slice(0, 4);
-          setRelatedPosts(related);
+        // Fetch related posts and latest posts in parallel
+        const postsResponse = await apiClient.getPosts({ limit: 20, status: 'PUBLISHED' });
+        if (postsResponse?.data) {
+          // Get latest posts for sidebar
+          setLatestPosts(postsResponse.data.filter(p => p.id !== foundPost.id).slice(0, 5));
+          
+          // Get related posts from same category
+          if (foundPost.category) {
+            const related = postsResponse.data.filter(
+              p => p.category?.id === foundPost.category?.id && p.id !== foundPost.id
+            ).slice(0, 4);
+            setRelatedPosts(related);
+          }
         }
       } else {
         setError('Post not found');

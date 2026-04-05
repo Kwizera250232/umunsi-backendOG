@@ -108,10 +108,9 @@ const FeaturedNews: React.FC = () => {
       const response = await apiClient.getArticles({ 
         page: currentPage, 
         limit: itemsPerPage,
-        isFeatured: true,
-        search: searchTerm,
         status: statusFilter === 'ALL' ? undefined : statusFilter,
-        categoryId: categoryFilter === 'ALL' ? undefined : categoryFilter,
+        search: searchTerm,
+        category: categoryFilter === 'ALL' ? undefined : categoryFilter,
         sortBy,
         sortOrder
       });

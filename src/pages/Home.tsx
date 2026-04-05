@@ -594,21 +594,21 @@ const Home = () => {
             </Link>
           </div>
 
-          {/* Recent Announcements Preview */}
+          {/* Recent Announcements Preview - Show latest posts */}
           <div className="border-t border-[#2b2f36] p-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              <div className="p-3 bg-[#0b0e11] rounded-lg border border-[#2b2f36] hover:border-[#fcd535]/30 transition-colors">
-                <p className="text-white text-sm font-medium line-clamp-1">Cyamunara y'inzu i Kigali</p>
-                <p className="text-gray-500 text-xs mt-1">Cyamunara • Uyu munsi</p>
-              </div>
-              <div className="p-3 bg-[#0b0e11] rounded-lg border border-[#2b2f36] hover:border-[#fcd535]/30 transition-colors">
-                <p className="text-white text-sm font-medium line-clamp-1">Software Developer Wanted</p>
-                <p className="text-gray-500 text-xs mt-1">Akazi • Ejo</p>
-              </div>
-              <div className="p-3 bg-[#0b0e11] rounded-lg border border-[#2b2f36] hover:border-[#fcd535]/30 transition-colors hidden lg:block">
-                <p className="text-white text-sm font-medium line-clamp-1">Guhinduza izina: MUKIZA → KALISA</p>
-                <p className="text-gray-500 text-xs mt-1">Guhinduza • Iminsi 2 ishize</p>
-              </div>
+              {posts.slice(0, 3).map((post, index) => (
+                <Link 
+                  key={post.id} 
+                  to={`/post/${post.slug}`}
+                  className={`p-3 bg-[#0b0e11] rounded-lg border border-[#2b2f36] hover:border-[#fcd535]/30 transition-colors ${index === 2 ? 'hidden lg:block' : ''}`}
+                >
+                  <p className="text-white text-sm font-medium line-clamp-1">{post.title}</p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    {post.category?.name || 'Amakuru'} • {formatDate(post.publishedAt || post.createdAt)}
+                  </p>
+                </Link>
+              ))}
             </div>
           </div>
         </div>
