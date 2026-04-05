@@ -4,6 +4,60 @@ import { apiClient, AdsBannersState } from '../../services/api';
 
 type SlotKey = keyof AdsBannersState['slots'];
 
+const defaultAdsSettings: AdsBannersState = {
+  slots: {
+    leaderboardTop970x120: {
+      enabled: false,
+      imageUrl: '',
+      targetUrl: '',
+      altText: 'Top Leaderboard Banner',
+      size: '970x120',
+      label: 'Top Leaderboard Banner'
+    },
+    business728x250: {
+      enabled: false,
+      imageUrl: '',
+      targetUrl: '',
+      altText: "Ahantu h'Ubucuruzi Banner",
+      size: '728x250',
+      label: "Ahantu h'Ubucuruzi Banner"
+    },
+    sidebar300x250: {
+      enabled: false,
+      imageUrl: '',
+      targetUrl: '',
+      altText: 'Sidebar 300x250 Banner',
+      size: '300x250',
+      label: 'Sidebar 300x250 Banner'
+    },
+    square300x300: {
+      enabled: false,
+      imageUrl: '',
+      targetUrl: '',
+      altText: 'Square 300x300 Banner',
+      size: '300x300',
+      label: 'Square 300x300 Banner'
+    },
+    skyscraper300x600: {
+      enabled: false,
+      imageUrl: '',
+      targetUrl: '',
+      altText: 'Skyscraper 300x600 Banner',
+      size: '300x600',
+      label: 'Skyscraper 300x600 Banner'
+    },
+    leaderboardBottom970x120: {
+      enabled: false,
+      imageUrl: '',
+      targetUrl: '',
+      altText: 'Bottom Leaderboard Banner',
+      size: '970x120',
+      label: 'Bottom Leaderboard Banner'
+    }
+  },
+  updatedAt: new Date().toISOString()
+};
+
 const AdsManagement = () => {
   const [loading, setLoading] = useState(true);
   const [adsSettings, setAdsSettings] = useState<AdsBannersState | null>(null);
@@ -17,7 +71,8 @@ const AdsManagement = () => {
         setAdsSettings(response);
       } catch (error) {
         console.error('Failed to load ads settings:', error);
-        alert('Failed to load ads settings');
+        setAdsSettings(defaultAdsSettings);
+        alert('Failed to load ads settings from server. Using local fallback view.');
       } finally {
         setLoading(false);
       }
