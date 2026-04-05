@@ -40,26 +40,39 @@ const normalizeArticleHtml = (content?: string) => {
 };
 
 const splitAfterThirdParagraph = (html: string) => {
-  const closeParagraphRegex = /<\/p>/gi;
-  let match: RegExpExecArray | null;
-  let paragraphCount = 0;
-  let splitIndex = -1;
-
-  while ((match = closeParagraphRegex.exec(html)) !== null) {
-    paragraphCount += 1;
-    if (paragraphCount === 3) {
-      splitIndex = match.index + match[0].length;
-      break;
-    }
+  if (!html?.trim()) {
+    return { before: '', after: '', hasThirdParagraph: false };
   }
 
-  if (splitIndex === -1) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const blockSelector = 'p,div,h1,h2,h3,h4,h5,h6,li,blockquote';
+  const blockElements = Array.from(doc.body.querySelectorAll(blockSelector));
+
+  const readableBlocks = blockElements.filter((element) => {
+    const text = (element.textContent || '').replace(/\s+/g, ' ').trim();
+    return text.length > 0;
+  });
+
+  if (readableBlocks.length === 0) {
+    return { before: html, after: '', hasThirdParagraph: false };
+  }
+
+  const insertionBlock = readableBlocks[Math.min(2, readableBlocks.length - 1)];
+  const markerId = '__adsense_split_marker__';
+  insertionBlock.insertAdjacentHTML('afterend', `<span id="${markerId}"></span>`);
+
+  const serialized = doc.body.innerHTML;
+  const markerHtml = `<span id="${markerId}"></span>`;
+  const markerIndex = serialized.indexOf(markerHtml);
+
+  if (markerIndex === -1) {
     return { before: html, after: '', hasThirdParagraph: false };
   }
 
   return {
-    before: html.slice(0, splitIndex),
-    after: html.slice(splitIndex),
+    before: serialized.slice(0, markerIndex),
+    after: serialized.slice(markerIndex + markerHtml.length),
     hasThirdParagraph: true
   };
 };
