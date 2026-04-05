@@ -30,6 +30,7 @@ import AddPost from './pages/admin/AddPost';
 import EditPost from './pages/admin/EditPost';
 import PostDetail from './pages/admin/PostDetail';
 import Roles from './pages/admin/Roles';
+import AdsManagement from './pages/admin/AdsManagement';
 import { withAuth, withAdmin, withEditor } from './contexts/AuthContext';
 
 // Create wrapped components
@@ -50,6 +51,7 @@ const ProtectedAddPost = withEditor(AddPost);
 const ProtectedEditPost = withEditor(EditPost);
 const ProtectedPostDetail = withEditor(PostDetail);
 const ProtectedRoles = withAdmin(Roles);
+const ProtectedAdsManagement = withEditor(AdsManagement);
 const ProtectedProfile = withAuth(Profile);
 
 function App() {
@@ -97,6 +99,7 @@ function App() {
             <Route path="featured-news" element={<ProtectedFeaturedNews />} />
             <Route path="categories" element={<ProtectedCategories />} />
             <Route path="users" element={<ProtectedUsers />} />
+            <Route path="ads-management" element={<ProtectedAdsManagement />} />
             <Route path="roles" element={<ProtectedRoles />} />
             <Route path="analytics" element={<ProtectedAnalytics />} />
             <Route path="logs" element={<ProtectedLogs />} />

@@ -38,7 +38,8 @@ import {
   Crown,
   Menu,
   Sun,
-  Moon
+  Moon,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDashboardStats } from '../../hooks/useDashboardStats';
@@ -207,6 +208,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
           icon: UsersIcon,
           badge: countsLoading ? '...' : dbCounts.users,
           color: 'from-cyan-500 to-cyan-600'
+        },
+        {
+          name: 'Ads Management',
+          path: '/admin/ads-management',
+          icon: Megaphone,
+          color: 'from-amber-500 to-amber-600'
         },
     { 
           name: 'Roles',

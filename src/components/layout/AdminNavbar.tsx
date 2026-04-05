@@ -21,7 +21,8 @@ import {
   Crown,
   BookOpen,
   Sun,
-  Moon
+  Moon,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -63,6 +64,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
     { name: 'Categories', href: '/admin/categories', icon: FolderOpen },
     { name: 'Media', href: '/admin/media', icon: Image },
     { name: 'Users', href: '/admin/users', icon: Users },
+    { name: 'Ads', href: '/admin/ads-management', icon: Megaphone },
     { name: 'Analytics', href: '/admin/analytics', icon: Activity },
     { name: 'Settings', href: '/admin/settings', icon: Settings },
   ];
