@@ -132,10 +132,16 @@ const isTrustedBot = (userAgent = '') => {
 // Required when running behind Nginx/Cloudpanel reverse proxy
 app.set('trust proxy', 1);
 
-const allowedOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '')
+const configuredOrigins = (process.env.CORS_ORIGIN || process.env.FRONTEND_URL || '')
   .split(',')
   .map((origin) => origin.trim())
   .filter(Boolean);
+
+const productionOrigins = Array.from(new Set([
+  ...configuredOrigins,
+  'https://umunsi.com',
+  'https://www.umunsi.com'
+]));
 
 const devOrigins = [
   'http://localhost:3000',
@@ -154,7 +160,7 @@ app.use(helmet({
 }));
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? allowedOrigins
+    ? productionOrigins
     : devOrigins,
   credentials: true
 }));
@@ -246,10 +252,13 @@ app.use((req, res, next) => {
 // Static files with CORS headers
 app.use('/uploads', (req, res, next) => {
   // Set CORS headers for static files
+  const requestOrigin = req.headers.origin;
+  const preferredFrontendOrigin = process.env.FRONTEND_URL || configuredOrigins[0] || 'https://umunsi-chi.vercel.app';
   const staticOrigin = process.env.NODE_ENV === 'production'
-    ? (allowedOrigins[0] || process.env.FRONTEND_URL || 'https://umunsi.com')
+    ? ((requestOrigin && productionOrigins.includes(requestOrigin)) ? requestOrigin : preferredFrontendOrigin)
     : 'http://localhost:5173';
 
+  res.header('Vary', 'Origin');
   res.header('Access-Control-Allow-Origin', staticOrigin);
   res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');

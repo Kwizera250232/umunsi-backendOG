@@ -6,7 +6,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "sqlite"
   url      = env("DATABASE_URL")
 }
 
@@ -17,7 +17,7 @@ model User {
   password   String
   firstName  String?
   lastName   String?
-  role       UserRole @default(USER)
+  role       String @default("USER")
   avatar     String?
   bio        String?
   phone      String?
@@ -60,7 +60,7 @@ model News {
   content       String
   excerpt       String?
   featuredImage String?
-  status        NewsStatus  @default(DRAFT)
+  status        String  @default("DRAFT")
   publishedAt   DateTime?
   viewCount     Int         @default(0)
   likeCount     Int         @default(0)
@@ -88,7 +88,7 @@ model MediaFile {
   url           String
   thumbnailUrl  String?
   category      String
-  tags          String[]
+  tags          String
   description   String?
   isPublic      Boolean  @default(true)
   isFeatured    Boolean  @default(false)
@@ -109,7 +109,7 @@ model Post {
   content       String
   excerpt       String?
   featuredImage String?
-  status        PostStatus  @default(DRAFT)
+  status        String  @default("DRAFT")
   publishedAt   DateTime?
   viewCount     Int         @default(0)
   likeCount     Int         @default(0)
@@ -117,7 +117,7 @@ model Post {
   isFeatured    Boolean     @default(false)
   isPinned      Boolean     @default(false)
   allowComments Boolean     @default(true)
-  tags          String[]
+  tags          String
   metaTitle     String?
   metaDescription String?
   createdAt     DateTime    @default(now())
@@ -132,24 +132,4 @@ model Post {
   @@map("posts")
 }
 
-// Enums
-enum UserRole {
-  ADMIN
-  EDITOR
-  AUTHOR
-  USER
-}
 
-enum NewsStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-  DELETED
-}
-
-enum PostStatus {
-  DRAFT
-  PUBLISHED
-  ARCHIVED
-  DELETED
-}

@@ -19,6 +19,7 @@ const DEFAULT_STATE = {
     leaderboardTop970x120: defaultSlot('970x120', 'Leaderboard Banner (Top)'),
     business728x250: defaultSlot('728x250', "Ahantu h'Ubucuruzi"),
     sidebar300x250: defaultSlot('300x250', 'GIF / Banner Ad'),
+    adminSidebar240x320: defaultSlot('320x240', 'Admin Sidebar Banner'),
     square300x300: defaultSlot('300x300', 'Square Ad'),
     skyscraper300x600: defaultSlot('300x600', 'Skyscraper Ad'),
     leaderboardBottom970x120: defaultSlot('970x120', 'Leaderboard Banner (Bottom)')

@@ -1,7 +1,16 @@
 const { PrismaClient } = require('@prisma/client');
 const slugify = require('slugify');
+const { incrementDailyViews } = require('../utils/viewStats');
 
 const prisma = new PrismaClient();
+
+const isAdminRequest = (req) => req.user && req.user.role === 'ADMIN';
+
+const sanitizePostForRole = (post, isAdmin) => {
+  if (isAdmin) return post;
+  const { viewCount, ...rest } = post;
+  return rest;
+};
 
 // Helper function to generate slug
 const generateSlug = (title, existingId = null) => {
@@ -102,9 +111,19 @@ const getPosts = async (req, res) => {
       prisma.post.count({ where })
     ]);
 
+    // Convert tags from string to array for each post
+    const postsWithTagsArray = posts.map(post => {
+      const mappedPost = {
+        ...post,
+        tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+      };
+
+      return sanitizePostForRole(mappedPost, isAdminRequest(req));
+    });
+
     res.json({
       success: true,
-      data: posts,
+      data: postsWithTagsArray,
       pagination: {
         page: parseInt(page),
         limit: parseInt(limit),
@@ -189,9 +208,20 @@ const getPost = async (req, res) => {
       data: { viewCount: { increment: 1 } }
     });
 
+    // Track daily reads for admin analytics.
+    incrementDailyViews(new Date(), 1);
+
+    // Convert tags from string to array
+    const postWithTagsArray = {
+      ...post,
+      tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+    };
+
+    const safePost = sanitizePostForRole(postWithTagsArray, isAdminRequest(req));
+
     res.json({
       success: true,
-      data: post
+      data: safePost
     });
   } catch (error) {
     console.error('Error fetching post:', error);
@@ -241,7 +271,7 @@ const createPost = async (req, res) => {
         isFeatured,
         isPinned,
         allowComments,
-        tags,
+        tags: Array.isArray(tags) ? tags.join(',') : tags,
         metaTitle,
         metaDescription,
         authorId
@@ -267,9 +297,15 @@ const createPost = async (req, res) => {
       }
     });
 
+    // Convert tags from string to array
+    const postWithTagsArray = {
+      ...post,
+      tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+    };
+
     res.status(201).json({
       success: true,
-      data: post
+      data: postWithTagsArray
     });
   } catch (error) {
     console.error('Error creating post:', error);
@@ -339,7 +375,7 @@ const updatePost = async (req, res) => {
         ...(isFeatured !== undefined && { isFeatured }),
         ...(isPinned !== undefined && { isPinned }),
         ...(allowComments !== undefined && { allowComments }),
-        ...(tags && { tags }),
+        ...(tags && { tags: Array.isArray(tags) ? tags.join(',') : tags }),
         ...(metaTitle !== undefined && { metaTitle }),
         ...(metaDescription !== undefined && { metaDescription })
       },
@@ -364,9 +400,15 @@ const updatePost = async (req, res) => {
       }
     });
 
+    // Convert tags from string to array
+    const postWithTagsArray = {
+      ...post,
+      tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
+    };
+
     res.json({
       success: true,
-      data: post
+      data: postWithTagsArray
     });
   } catch (error) {
     console.error('Error updating post:', error);
@@ -464,6 +506,8 @@ const getPostStats = async (req, res) => {
       })
     ]);
 
+    const canSeeViews = isAdminRequest(req);
+
     res.json({
       success: true,
       data: {
@@ -471,7 +515,7 @@ const getPostStats = async (req, res) => {
         publishedPosts,
         draftPosts,
         featuredPosts,
-        totalViews: totalViews._sum.viewCount || 0,
+        totalViews: canSeeViews ? (totalViews._sum.viewCount || 0) : undefined,
         totalLikes: totalLikes._sum.likeCount || 0
       }
     });

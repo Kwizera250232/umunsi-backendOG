@@ -99,6 +99,12 @@ router.get('/me',
   authController.getProfile
 );
 
+// Compatibility alias for clients requesting /auth/profile with GET
+router.get('/profile',
+  authenticateToken,
+  authController.getProfile
+);
+
 router.put('/profile', 
   authenticateToken, 
   validateProfileUpdate, 

@@ -289,7 +289,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757060699767-440298563.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757060699767-440298563.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded image file'
   },
   {
@@ -300,7 +300,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757060767576-639902165.png',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757060767576-639902165.png',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded PNG image file'
   },
   {
@@ -311,7 +311,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757061057194-644781883.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757061057194-644781883.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   },
   {
@@ -322,7 +322,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757061345368-209470306.png',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757061345368-209470306.png',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded PNG image file'
   },
   {
@@ -333,7 +333,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757062006766-849755523.jpg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757062006766-849755523.jpg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPG image file'
   },
   {
@@ -344,7 +344,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757063135454-917596910.mp4',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757063135454-917596910.mp4',
     category: 'general',
-    tags: ['video', 'mp4', 'uploaded'],
+    tags: 'video,mp4,uploaded',
     description: 'Uploaded MP4 video file'
   },
   {
@@ -355,7 +355,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757063190285-260517929.jpg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757063190285-260517929.jpg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPG image file'
   },
   {
@@ -366,7 +366,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757063230086-314708945.pdf',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757063230086-314708945.pdf',
     category: 'general',
-    tags: ['document', 'pdf', 'uploaded'],
+    tags: 'document,pdf,uploaded',
     description: 'Uploaded PDF document file'
   },
   {
@@ -377,7 +377,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757066902661-306586458.png',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757066902661-306586458.png',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded PNG image file'
   },
   {
@@ -388,7 +388,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757066911220-684432089.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757066911220-684432089.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   },
   {
@@ -399,7 +399,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757067975208-683146511.png',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757067975208-683146511.png',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded PNG image file'
   },
   {
@@ -410,7 +410,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757068665843-732950324.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757068665843-732950324.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   },
   {
@@ -421,7 +421,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757068665845-307256581.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757068665845-307256581.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   },
   {
@@ -432,7 +432,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757069886169-345060908.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757069886169-345060908.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   },
   {
@@ -443,7 +443,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757070232954-503591869.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757070232954-503591869.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   },
   {
@@ -454,7 +454,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757070232963-817065102.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757070232963-817065102.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   },
   {
@@ -465,7 +465,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757070232980-82941326.png',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757070232980-82941326.png',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded PNG image file'
   },
   {
@@ -476,7 +476,7 @@ const sampleMediaFiles = [
     url: '/uploads/media/files-1757070233012-496462194.jpeg',
     thumbnailUrl: '/uploads/media/thumbnails/thumb_files-1757070233012-496462194.jpeg',
     category: 'general',
-    tags: ['image', 'photo', 'uploaded'],
+    tags: 'image,photo,uploaded',
     description: 'Uploaded JPEG image file'
   }
 ];
@@ -493,7 +493,7 @@ const testPost = {
   isFeatured: false,
   isPinned: false,
   allowComments: true,
-  tags: ['test', 'edit', 'functionality'],
+  tags: 'test,edit,functionality',
   metaTitle: 'Test Post - Edit Functionality',
   metaDescription: 'A test post for verifying edit functionality works correctly.',
   viewCount: 0,

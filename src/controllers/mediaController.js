@@ -226,7 +226,7 @@ const uploadMediaFiles = async (req, res) => {
           url: `/uploads/media/${file.filename}`,
           thumbnailUrl,
           category,
-          tags: [],
+          tags: '',
           description: '',
           uploadedById: userId,
           isPublic: true,
@@ -271,7 +271,7 @@ const updateMediaFile = async (req, res) => {
       where: { id },
       data: {
         description,
-        tags: Array.isArray(tags) ? tags : [],
+        tags: Array.isArray(tags) ? tags.join(',') : (typeof tags === 'string' ? tags : ''),
         isPublic: isPublic === 'true' || isPublic === true,
         isFeatured: isFeatured === 'true' || isFeatured === true,
         category
