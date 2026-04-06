@@ -4,6 +4,7 @@ const { authenticateToken, optionalAuth, requireEditor, requireAdmin } = require
 const {
   getPosts,
   getPost,
+  getPremiumDashboard,
   createPost,
   updatePost,
   deletePost,
@@ -17,6 +18,9 @@ router.get('/', optionalAuth, getPosts);
 
 // GET /api/posts/stats - Get post statistics (public for displaying counts)
 router.get('/stats', optionalAuth, getPostStats);
+
+// GET /api/posts/premium-dashboard - Premium posts with per-user access flags
+router.get('/premium-dashboard', authenticateToken, getPremiumDashboard);
 
 // GET /api/posts/:id - Get single post
 router.get('/:id', optionalAuth, getPost);

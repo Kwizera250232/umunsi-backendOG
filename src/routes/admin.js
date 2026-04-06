@@ -292,6 +292,8 @@ router.get('/users', authenticateToken, requireEditor, [
           role: true,
           avatar: true,
           isActive: true,
+          isPremium: true,
+          premiumUntil: true,
           lastLogin: true,
           createdAt: true,
           updatedAt: true,
@@ -331,6 +333,8 @@ router.get('/users', authenticateToken, requireEditor, [
 router.put('/users/:id', authenticateToken, requireAdmin, [
   body('role').optional().isIn(['ADMIN', 'EDITOR', 'AUTHOR', 'USER']),
   body('isActive').optional().isBoolean(),
+  body('isPremium').optional().isBoolean(),
+  body('premiumUntil').optional({ nullable: true }).isISO8601(),
   body('firstName').optional().trim().notEmpty(),
   body('lastName').optional().trim().notEmpty(),
   body('username').optional().trim().notEmpty()
@@ -345,7 +349,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
     }
 
     const { id } = req.params;
-    const { role, isActive, firstName, lastName, username } = req.body;
+    const { role, isActive, isPremium, premiumUntil, firstName, lastName, username } = req.body;
 
     // Prevent admin from deactivating themselves
     if (id === req.user.id && isActive === false) {
@@ -360,6 +364,8 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
       data: {
         ...(role && { role }),
         ...(typeof isActive === 'boolean' && { isActive }),
+        ...(typeof isPremium === 'boolean' && { isPremium }),
+        ...(premiumUntil !== undefined && { premiumUntil: premiumUntil ? new Date(premiumUntil) : null }),
         ...(firstName && { firstName }),
         ...(lastName && { lastName }),
         ...(username && { username })
@@ -373,6 +379,8 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
         role: true,
         avatar: true,
         isActive: true,
+        isPremium: true,
+        premiumUntil: true,
         lastLogin: true,
         createdAt: true,
         updatedAt: true
@@ -390,6 +398,131 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
       success: false,
       error: 'Failed to update user',
       message: 'Could not update user'
+    });
+  }
+});
+
+// Grant a single premium post to a specific user
+router.post('/users/:id/premium-posts', authenticateToken, requireAdmin, [
+  body('postId').isString().trim().notEmpty(),
+  body('expiresAt').optional({ nullable: true }).isISO8601()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { id: userId } = req.params;
+    const { postId, expiresAt } = req.body;
+
+    const [user, post] = await Promise.all([
+      prisma.user.findUnique({ where: { id: userId }, select: { id: true, role: true } }),
+      prisma.post.findUnique({ where: { id: postId }, select: { id: true, title: true, isPremium: true } })
+    ]);
+
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+
+    if (!post || !post.isPremium) {
+      return res.status(400).json({ success: false, error: 'Post not found or not premium' });
+    }
+
+    const access = await prisma.premiumPostAccess.upsert({
+      where: {
+        userId_postId: {
+          userId,
+          postId
+        }
+      },
+      update: {
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        grantedBy: req.user.id
+      },
+      create: {
+        userId,
+        postId,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        grantedBy: req.user.id
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Premium post access granted successfully',
+      data: access
+    });
+  } catch (error) {
+    console.error('Grant premium post access error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to grant premium post access'
+    });
+  }
+});
+
+// List specific premium post access for one user
+router.get('/users/:id/premium-posts', authenticateToken, requireEditor, async (req, res) => {
+  try {
+    const { id: userId } = req.params;
+
+    const access = await prisma.premiumPostAccess.findMany({
+      where: { userId },
+      include: {
+        post: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            isPremium: true,
+            status: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return res.json({
+      success: true,
+      data: access
+    });
+  } catch (error) {
+    console.error('List premium post access error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch premium post access list'
+    });
+  }
+});
+
+// Revoke a specific premium post access for a user
+router.delete('/users/:id/premium-posts/:postId', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { id: userId, postId } = req.params;
+
+    await prisma.premiumPostAccess.delete({
+      where: {
+        userId_postId: {
+          userId,
+          postId
+        }
+      }
+    });
+
+    return res.json({
+      success: true,
+      message: 'Premium post access revoked successfully'
+    });
+  } catch (error) {
+    console.error('Revoke premium post access error:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to revoke premium post access'
     });
   }
 });

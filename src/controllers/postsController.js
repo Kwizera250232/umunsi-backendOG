@@ -12,12 +12,87 @@ const sanitizePostForRole = (post, isAdmin) => {
   return rest;
 };
 
-const hasPremiumAccess = (req) => {
+const hasPremiumAccess = async (req, postId = null) => {
   if (!req.user) return false;
   if (['ADMIN', 'EDITOR', 'AUTHOR'].includes(req.user.role)) return true;
-  if (!req.user.isPremium) return false;
-  if (!req.user.premiumUntil) return true;
-  return new Date(req.user.premiumUntil) > new Date();
+  if (req.user.isPremium) {
+    if (!req.user.premiumUntil) return true;
+    if (new Date(req.user.premiumUntil) > new Date()) return true;
+  }
+
+  if (!postId) return false;
+
+  const grant = await prisma.premiumPostAccess.findFirst({
+    where: {
+      userId: req.user.id,
+      postId,
+      OR: [
+        { expiresAt: null },
+        { expiresAt: { gt: new Date() } }
+      ]
+    }
+  });
+
+  return Boolean(grant);
+};
+
+const getPremiumDashboard = async (req, res) => {
+  try {
+    const premiumPosts = await prisma.post.findMany({
+      where: {
+        status: 'PUBLISHED',
+        isPremium: true
+      },
+      include: {
+        author: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            username: true,
+            avatar: true
+          }
+        },
+        category: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            color: true
+          }
+        }
+      },
+      orderBy: { publishedAt: 'desc' }
+    });
+
+    const results = await Promise.all(
+      premiumPosts.map(async (post) => {
+        const canAccess = await hasPremiumAccess(req, post.id);
+        return {
+          id: post.id,
+          title: post.title,
+          slug: post.slug,
+          featuredImage: post.featuredImage,
+          publishedAt: post.publishedAt,
+          createdAt: post.createdAt,
+          category: post.category,
+          author: post.author,
+          hasAccess: canAccess
+        };
+      })
+    );
+
+    return res.json({
+      success: true,
+      data: results
+    });
+  } catch (error) {
+    console.error('Error fetching premium dashboard:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch premium dashboard'
+    });
+  }
 };
 
 // Helper function to generate slug
@@ -227,7 +302,8 @@ const getPost = async (req, res) => {
 
     const safePost = sanitizePostForRole(postWithTagsArray, isAdminRequest(req));
 
-    const isLocked = Boolean(post.isPremium) && !hasPremiumAccess(req);
+    const canAccessPremium = await hasPremiumAccess(req, post.id);
+    const isLocked = Boolean(post.isPremium) && !canAccessPremium;
     const responsePost = isLocked
       ? {
           ...safePost,
@@ -557,6 +633,7 @@ const getPostStats = async (req, res) => {
 module.exports = {
   getPosts,
   getPost,
+  getPremiumDashboard,
   createPost,
   updatePost,
   deletePost,

@@ -29,6 +29,8 @@ const authenticateToken = async (req, res, next) => {
         lastName: true,
         role: true,
         avatar: true,
+        isPremium: true,
+        premiumUntil: true,
         isActive: true
       }
     });

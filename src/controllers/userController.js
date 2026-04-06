@@ -51,6 +51,8 @@ class UserController {
             role: true,
             isActive: true,
             isVerified: true,
+            isPremium: true,
+            premiumUntil: true,
             avatar: true,
             bio: true,
             phone: true,
@@ -108,6 +110,8 @@ class UserController {
           role: true,
           isActive: true,
           isVerified: true,
+          isPremium: true,
+          premiumUntil: true,
           avatar: true,
           bio: true,
           phone: true,
@@ -277,7 +281,9 @@ class UserController {
         avatar,
         phone,
         isActive,
-        isVerified
+        isVerified,
+        isPremium,
+        premiumUntil
       } = req.body;
 
       // Find the user
@@ -350,6 +356,8 @@ class UserController {
           phone: phone !== undefined ? phone : existingUser.phone,
           isActive: isActive !== undefined ? isActive : existingUser.isActive,
           isVerified: isVerified !== undefined ? isVerified : existingUser.isVerified,
+          isPremium: isPremium !== undefined ? isPremium : existingUser.isPremium,
+          premiumUntil: premiumUntil !== undefined ? (premiumUntil ? new Date(premiumUntil) : null) : existingUser.premiumUntil,
           updatedAt: new Date()
         },
         select: {
@@ -360,6 +368,8 @@ class UserController {
           lastName: true,
           role: true,
           isActive: true,
+          isPremium: true,
+          premiumUntil: true,
           avatar: true,
           bio: true,
           updatedAt: true
