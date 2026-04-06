@@ -110,6 +110,8 @@ const optionalAuth = async (req, res, next) => {
           email: true,
           username: true,
           role: true,
+          isPremium: true,
+          premiumUntil: true,
           isActive: true
         }
       });

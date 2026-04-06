@@ -10,6 +10,8 @@ const FLW_BASE_URL = process.env.FLW_BASE_URL || 'https://api.flutterwave.com/v3
 const PREMIUM_SUPPORT_AMOUNT_RWF = Number(process.env.PREMIUM_SUPPORT_AMOUNT_RWF || 500);
 const PREMIUM_DURATION_DAYS = Number(process.env.PREMIUM_DURATION_DAYS || 30);
 
+const isFlutterwaveConfigured = () => Boolean((process.env.FLW_SECRET_KEY || '').trim());
+
 const toDate = (value) => {
   const d = new Date(value);
   return Number.isNaN(d.getTime()) ? new Date() : d;
@@ -164,6 +166,14 @@ const verifyAndSyncByTxRef = async (payment, knownTransactionId) => {
 router.post('/flutterwave/initialize', authenticateToken, async (req, res) => {
   let paymentRecord = null;
   try {
+    if (!isFlutterwaveConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: 'Flutterwave is not configured on this server yet.',
+        message: 'Set FLW_SECRET_KEY and restart backend.'
+      });
+    }
+
     const amount = Number(req.body?.amount || PREMIUM_SUPPORT_AMOUNT_RWF);
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({
@@ -173,7 +183,7 @@ router.post('/flutterwave/initialize', authenticateToken, async (req, res) => {
     }
 
     const txRef = buildTxRef(req.user.id);
-    const redirectUrl = `${getFrontendBaseUrl()}/subscriber-account?payment=callback`;
+    const redirectUrl = `${getFrontendBaseUrl()}/subscriber/account?payment=callback`;
     const fullName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.username;
 
     paymentRecord = await prisma.supportPayment.create({
@@ -258,8 +268,8 @@ router.post('/flutterwave/initialize', authenticateToken, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      error: 'Failed to initialize payment',
-      message: error.message
+      error: error.message || 'Failed to initialize payment',
+      message: error.message || 'Failed to initialize payment'
     });
   }
 });

@@ -12,6 +12,14 @@ const sanitizePostForRole = (post, isAdmin) => {
   return rest;
 };
 
+const hasPremiumAccess = (req) => {
+  if (!req.user) return false;
+  if (['ADMIN', 'EDITOR', 'AUTHOR'].includes(req.user.role)) return true;
+  if (!req.user.isPremium) return false;
+  if (!req.user.premiumUntil) return true;
+  return new Date(req.user.premiumUntil) > new Date();
+};
+
 // Helper function to generate slug
 const generateSlug = (title, existingId = null) => {
   let baseSlug = slugify(title, { lower: true, strict: true });
@@ -219,9 +227,23 @@ const getPost = async (req, res) => {
 
     const safePost = sanitizePostForRole(postWithTagsArray, isAdminRequest(req));
 
+    const isLocked = Boolean(post.isPremium) && !hasPremiumAccess(req);
+    const responsePost = isLocked
+      ? {
+          ...safePost,
+          content: '',
+          excerpt: '',
+          featuredImage: null,
+          isLocked: true
+        }
+      : {
+          ...safePost,
+          isLocked: false
+        };
+
     res.json({
       success: true,
-      data: safePost
+      data: responsePost
     });
   } catch (error) {
     console.error('Error fetching post:', error);
@@ -242,6 +264,7 @@ const createPost = async (req, res) => {
       featuredImage,
       status = 'DRAFT',
       categoryId,
+      isPremium = false,
       isFeatured = false,
       isPinned = false,
       allowComments = true,
@@ -266,6 +289,7 @@ const createPost = async (req, res) => {
         excerpt,
         featuredImage,
         status,
+        isPremium,
         publishedAt,
         categoryId: categoryId || null,
         isFeatured,
@@ -327,6 +351,7 @@ const updatePost = async (req, res) => {
       featuredImage,
       status,
       categoryId,
+      isPremium,
       isFeatured,
       isPinned,
       allowComments,
@@ -370,6 +395,7 @@ const updatePost = async (req, res) => {
         ...(excerpt !== undefined && { excerpt }),
         ...(featuredImage !== undefined && { featuredImage }),
         ...(status && { status }),
+        ...(isPremium !== undefined && { isPremium }),
         ...(publishedAt !== undefined && { publishedAt }),
         ...(categoryId !== undefined && { categoryId: categoryId || null }),
         ...(isFeatured !== undefined && { isFeatured }),
