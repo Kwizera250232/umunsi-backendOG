@@ -64,6 +64,9 @@ class AuthController {
         firstName: user.firstName,
         lastName: user.lastName,
         role: user.role,
+        isPremium: user.isPremium,
+        premiumSince: user.premiumSince,
+        premiumUntil: user.premiumUntil,
         avatar: user.avatar,
         bio: user.bio,
         isActive: user.isActive,
@@ -143,7 +146,7 @@ class AuthController {
       const saltRounds = 12;
       const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-      // Create user (default role is AUTHOR)
+      // Create subscriber account (default role is USER)
       const user = await prisma.user.create({
         data: {
           username: username.trim(),
@@ -151,7 +154,7 @@ class AuthController {
           password: hashedPassword,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          role: 'AUTHOR',
+          role: 'USER',
           bio: bio ? bio.trim() : null,
           avatar,
           isActive: true
@@ -163,6 +166,9 @@ class AuthController {
           firstName: true,
           lastName: true,
           role: true,
+          isPremium: true,
+          premiumSince: true,
+          premiumUntil: true,
           isActive: true,
           avatar: true,
           bio: true,
@@ -172,10 +178,21 @@ class AuthController {
 
       console.log('✅ User registered successfully:', user.username);
 
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          role: user.role,
+          username: user.username
+        },
+        process.env.JWT_SECRET || 'your-secret-key',
+        { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
+      );
+
       res.status(201).json({
         success: true,
         message: 'Registration successful',
-        user
+        user,
+        token
       });
 
     } catch (error) {
@@ -201,6 +218,9 @@ class AuthController {
           firstName: true,
           lastName: true,
           role: true,
+          isPremium: true,
+          premiumSince: true,
+          premiumUntil: true,
           avatar: true,
           bio: true,
           isActive: true,
@@ -256,6 +276,9 @@ class AuthController {
           firstName: true,
           lastName: true,
           role: true,
+          isPremium: true,
+          premiumSince: true,
+          premiumUntil: true,
           avatar: true,
           bio: true,
           isActive: true,

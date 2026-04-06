@@ -17,6 +17,7 @@ const analyticsRoutes = require('./routes/analytics');
 const adminRoutes = require('./routes/admin');
 const mediaRoutes = require('./routes/media');
 const postsRoutes = require('./routes/posts');
+const paymentsRoutes = require('./routes/payments');
 const { DEFAULT_MESSAGE, getMaintenanceState } = require('./utils/maintenance');
 const { getAdsBannersState } = require('./utils/adsBanners');
 
@@ -181,9 +182,9 @@ const limiter = rateLimit({
 });
 app.use('/api/', limiter);
 
-const authLimiter = rateLimit({
+const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 12,
+  max: parseInt(process.env.LOGIN_RATE_LIMIT_MAX_REQUESTS) || 20,
   message: {
     error: 'Too many authentication attempts. Please try again later.'
   },
@@ -191,7 +192,19 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
   skip: (req) => isTrustedBot(req.headers['user-agent'] || ''),
 });
-app.use('/api/auth', authLimiter);
+app.use('/api/auth/login', loginLimiter);
+
+const registerLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: parseInt(process.env.REGISTER_RATE_LIMIT_MAX_REQUESTS) || 40,
+  message: {
+    error: 'Too many signup attempts. Please wait a few minutes and try again.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => isTrustedBot(req.headers['user-agent'] || ''),
+});
+app.use('/api/auth/register', registerLimiter);
 
 // Logging
 if (process.env.NODE_ENV === 'development') {
@@ -275,7 +288,7 @@ app.use(async (req, res, next) => {
   const isApiRoute = requestPath.startsWith('/api');
 
   // Always allow minimal operational endpoints
-  const publicApiAllowList = ['/api/health', '/api/auth/login'];
+  const publicApiAllowList = ['/api/health', '/api/auth/login', '/api/payments/flutterwave/webhook'];
   if (publicApiAllowList.some((prefix) => requestPath.startsWith(prefix))) {
     return next();
   }
@@ -380,6 +393,7 @@ app.use('/api/analytics', analyticsRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/posts', postsRoutes);
+app.use('/api/payments', paymentsRoutes);
 
 // Dynamic metadata for article sharing previews
 app.get(['/post/:slug', '/article/:id'], async (req, res, next) => {

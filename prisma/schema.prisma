@@ -18,6 +18,9 @@ model User {
   firstName  String?
   lastName   String?
   role       String @default("USER")
+  isPremium  Boolean  @default(false)
+  premiumSince DateTime?
+  premiumUntil DateTime?
   avatar     String?
   bio        String?
   phone      String?
@@ -31,8 +34,33 @@ model User {
   news News[]
   mediaFiles MediaFile[]
   posts Post[]
+  supportPayments SupportPayment[]
 
   @@map("users")
+}
+
+model SupportPayment {
+  id               String   @id @default(cuid())
+  userId           String
+  provider         String   @default("FLUTTERWAVE")
+  purpose          String   @default("PREMIUM_SUPPORT")
+  amount           Float
+  currency         String   @default("RWF")
+  status           String   @default("PENDING")
+  txRef            String   @unique
+  flwTransactionId String?
+  checkoutUrl      String?
+  providerStatus   String?
+  customerEmail    String?
+  paidAt           DateTime?
+  errorMessage     String?
+  metadata         String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("support_payments")
 }
 
 model Category {
