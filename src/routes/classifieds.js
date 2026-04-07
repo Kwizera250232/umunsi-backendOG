@@ -38,6 +38,15 @@ const getTwilioConfig = () => {
   return { accountSid, authToken, fromNumber };
 };
 
+const getAfricasTalkingConfig = () => {
+  const username = process.env.AFRICASTALKING_USERNAME;
+  const apiKey = process.env.AFRICASTALKING_API_KEY;
+  const senderId = process.env.AFRICASTALKING_SENDER_ID;
+
+  if (!username || !apiKey) return null;
+  return { username, apiKey, senderId };
+};
+
 const sendSmsWithTwilio = async (toRaw, message) => {
   const config = getTwilioConfig();
   if (!config) {
@@ -56,6 +65,39 @@ const sendSmsWithTwilio = async (toRaw, message) => {
     method: 'POST',
     headers: {
       Authorization: `Basic ${Buffer.from(`${config.accountSid}:${config.authToken}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: form.toString()
+  });
+
+  if (!response.ok) {
+    const data = await response.text();
+    return { ok: false, error: data.slice(0, 300) };
+  }
+
+  return { ok: true };
+};
+
+const sendSmsWithAfricasTalking = async (toRaw, message) => {
+  const config = getAfricasTalkingConfig();
+  if (!config) {
+    return { ok: false, error: 'Africa\'s Talking config missing' };
+  }
+
+  const to = `+${normalizePhone(toRaw)}`;
+  const endpoint = 'https://api.africastalking.com/version1/messaging';
+  const form = new URLSearchParams({
+    username: config.username,
+    to,
+    message,
+    ...(config.senderId ? { from: config.senderId } : {})
+  });
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      apiKey: config.apiKey,
+      Accept: 'application/json',
       'Content-Type': 'application/x-www-form-urlencoded'
     },
     body: form.toString()
@@ -538,18 +580,23 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
     let smsError = null;
 
     if (sendSms) {
-      if (!getTwilioConfig()) {
-        smsError = 'Twilio ntabwo irashyirwaho kuri server.';
+      const hasTwilio = Boolean(getTwilioConfig());
+      const hasAfricasTalking = Boolean(getAfricasTalkingConfig());
+
+      if (!hasTwilio && !hasAfricasTalking) {
+        smsError = 'SMS provider ntabwo irashyirwaho kuri server (Twilio cyangwa Africa\'s Talking).';
       } else {
         const smsTargets = users.filter((u) => Boolean(u.phone));
         const smsResults = await Promise.allSettled(
-          smsTargets.map((u) => sendSmsWithTwilio(u.phone, message))
+          smsTargets.map((u) => (hasTwilio ? sendSmsWithTwilio(u.phone, message) : sendSmsWithAfricasTalking(u.phone, message)))
         );
         smsSent = smsResults.filter((r) => r.status === 'fulfilled' && r.value?.ok).length;
 
         const failed = smsResults.find((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.ok));
         if (failed && !smsError) {
-          smsError = 'Hari SMS zitoherejwe zose. Reba Twilio config cyangwa numero.';
+          smsError = hasTwilio
+            ? 'Hari SMS zitoherejwe zose. Reba Twilio config cyangwa numero.'
+            : 'Hari SMS zitoherejwe zose. Reba Africa\'s Talking config cyangwa numero.';
         }
       }
     }
