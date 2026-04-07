@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
+const nodemailer = require('nodemailer');
 const prisma = require('../database/prisma');
 const { authenticateToken, optionalAuth, requireEditor } = require('../middleware/auth');
 
@@ -7,6 +8,26 @@ const router = express.Router();
 
 const CATEGORIES = ['cyamunara', 'akazi', 'guhinduza', 'ibindi'];
 const STATUSES = ['PENDING', 'APPROVED', 'REJECTED'];
+
+const normalizePhone = (value = '') => String(value).replace(/\s+/g, '').replace(/^0/, '250');
+
+const getMailTransport = () => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD;
+
+  if (!host || !user || !pass) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass }
+  });
+};
 
 const toResponse = (ad) => ({
   id: ad.id,
@@ -126,6 +147,33 @@ router.get('/all', authenticateToken, requireEditor, async (req, res) => {
   }
 });
 
+// Admin/editor: get classifieds for one user
+router.get('/user/:userId', authenticateToken, requireEditor, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const ads = await prisma.classifiedAd.findMany({
+      where: { userId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+
+    return res.json({ success: true, data: ads.map(toResponse) });
+  } catch (error) {
+    console.error('List user classifieds error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to fetch user classifieds' });
+  }
+});
+
 // Submit a new ad
 router.post('/', authenticateToken, [
   body('category').isIn(CATEGORIES),
@@ -180,6 +228,85 @@ router.post('/', authenticateToken, [
   } catch (error) {
     console.error('Submit classified error:', error);
     return res.status(500).json({ success: false, error: 'Failed to submit classified ad' });
+  }
+});
+
+// Owner or admin/editor can edit ad details
+router.put('/:id', authenticateToken, [
+  body('category').optional().isIn(CATEGORIES),
+  body('title').optional().trim().isLength({ min: 3, max: 180 }),
+  body('description').optional().trim().isLength({ min: 6, max: 3000 }),
+  body('phone').optional().trim().isLength({ min: 6, max: 40 }),
+  body('email').optional().isEmail(),
+  body('durationDays').optional().isInt({ min: 1, max: 365 }),
+  body('priceRwf').optional().isInt({ min: 0 }),
+  body('attachmentName').optional({ nullable: true }).isString().isLength({ max: 200 }),
+  body('attachmentUrl').optional({ nullable: true }).isString().isLength({ max: 500 }),
+  body('status').optional().isIn(STATUSES),
+  body('reviewNote').optional({ nullable: true }).isString().isLength({ max: 500 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
+    }
+
+    const { id } = req.params;
+    const existing = await prisma.classifiedAd.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, error: 'Classified ad not found' });
+    }
+
+    const isEditor = ['ADMIN', 'EDITOR'].includes(req.user.role);
+    const isOwner = existing.userId === req.user.id;
+    if (!isEditor && !isOwner) {
+      return res.status(403).json({ success: false, error: 'Not allowed to edit this classified ad' });
+    }
+
+    const updateData = {
+      ...(req.body.category !== undefined ? { category: req.body.category } : {}),
+      ...(req.body.title !== undefined ? { title: req.body.title } : {}),
+      ...(req.body.description !== undefined ? { description: req.body.description } : {}),
+      ...(req.body.phone !== undefined ? { phone: req.body.phone } : {}),
+      ...(req.body.email !== undefined ? { email: req.body.email } : {}),
+      ...(req.body.durationDays !== undefined ? { durationDays: Number(req.body.durationDays) } : {}),
+      ...(req.body.priceRwf !== undefined ? { priceRwf: Number(req.body.priceRwf) } : {}),
+      ...(req.body.attachmentName !== undefined ? { attachmentName: req.body.attachmentName || null } : {}),
+      ...(req.body.attachmentUrl !== undefined ? { attachmentUrl: req.body.attachmentUrl || null } : {})
+    };
+
+    if (isEditor) {
+      if (req.body.status !== undefined) {
+        updateData.status = req.body.status;
+      }
+      if (req.body.reviewNote !== undefined) {
+        updateData.reviewNote = req.body.reviewNote || null;
+      }
+      if (req.body.status !== undefined || req.body.reviewNote !== undefined) {
+        updateData.reviewedById = req.user.id;
+      }
+    }
+
+    const updated = await prisma.classifiedAd.update({
+      where: { id },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            username: true,
+            firstName: true,
+            lastName: true
+          }
+        }
+      }
+    });
+
+    return res.json({ success: true, message: 'Itangazo ryavuguruwe.', data: toResponse(updated) });
+  } catch (error) {
+    console.error('Edit classified error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to update classified ad' });
   }
 });
 
@@ -289,6 +416,98 @@ router.post('/broadcasts', authenticateToken, requireEditor, [
   } catch (error) {
     console.error('Create classifieds broadcast error:', error);
     return res.status(500).json({ success: false, error: 'Failed to create broadcast' });
+  }
+});
+
+// Targeted dispatch: email + phone links for selected users
+router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
+  body('message').trim().isLength({ min: 3, max: 500 }),
+  body('userIds').optional().isArray(),
+  body('sendEmail').optional().isBoolean(),
+  body('sendPhone').optional().isBoolean(),
+  body('subject').optional().isString().isLength({ min: 3, max: 150 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
+    }
+
+    const { message, userIds = [], sendEmail = true, sendPhone = true, subject } = req.body;
+
+    const where = {
+      isActive: true,
+      ...(Array.isArray(userIds) && userIds.length > 0 ? { id: { in: userIds } } : {})
+    };
+
+    const users = await prisma.user.findMany({
+      where,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        username: true,
+        email: true,
+        phone: true
+      }
+    });
+
+    const created = await prisma.classifiedBroadcast.create({
+      data: {
+        message,
+        createdById: req.user.id
+      }
+    });
+
+    let emailsSent = 0;
+    let emailError = null;
+
+    if (sendEmail) {
+      const transporter = getMailTransport();
+      if (transporter) {
+        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+        const mailSubject = subject || 'Ubutumwa buvuye kuri Umunsi';
+        const emailTargets = users.filter((u) => Boolean(u.email));
+        await Promise.allSettled(
+          emailTargets.map((target) => transporter.sendMail({
+            from: fromAddress,
+            to: target.email,
+            subject: mailSubject,
+            text: message
+          }))
+        );
+        emailsSent = emailTargets.length;
+      } else {
+        emailError = 'SMTP ntabwo irashyirwaho kuri server.';
+      }
+    }
+
+    const phoneTargets = sendPhone
+      ? users
+          .filter((u) => Boolean(u.phone))
+          .map((u) => ({
+            userId: u.id,
+            name: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.username,
+            phone: u.phone,
+            whatsappUrl: `https://wa.me/${normalizePhone(u.phone || '')}?text=${encodeURIComponent(message)}`
+          }))
+      : [];
+
+    return res.json({
+      success: true,
+      message: 'Broadcast yoherejwe.',
+      data: {
+        broadcastId: created.id,
+        totalTargets: users.length,
+        emailsSent,
+        emailError,
+        phoneTargets,
+        sentAt: created.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Dispatch classifieds broadcast error:', error);
+    return res.status(500).json({ success: false, error: 'Failed to dispatch broadcast' });
   }
 });
 
