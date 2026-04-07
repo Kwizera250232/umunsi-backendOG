@@ -111,7 +111,7 @@ export interface User {
   lastName: string;
   role: 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER';
   isActive: boolean;
-  isVerified: boolean;
+  isVerified?: boolean;
   avatar?: string;
   bio?: string;
   phone?: string;

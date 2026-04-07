@@ -8,6 +8,13 @@ const { getTodayViews, getDailyViews } = require('../utils/viewStats');
 
 const router = express.Router();
 
+const normalizeFullName = (firstName = '', lastName = '') =>
+  `${firstName} ${lastName}`
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
 // ==================== ADS BANNERS ====================
 
 router.get('/ads-banners', authenticateToken, requireEditor, async (req, res) => {
@@ -290,6 +297,7 @@ router.get('/users', authenticateToken, requireEditor, [
           firstName: true,
           lastName: true,
           role: true,
+          isVerified: true,
           avatar: true,
           isActive: true,
           isPremium: true,
@@ -333,6 +341,7 @@ router.get('/users', authenticateToken, requireEditor, [
 router.put('/users/:id', authenticateToken, requireAdmin, [
   body('role').optional().isIn(['ADMIN', 'EDITOR', 'AUTHOR', 'USER']),
   body('isActive').optional().isBoolean(),
+  body('isVerified').optional().isBoolean(),
   body('isPremium').optional().isBoolean(),
   body('premiumUntil').optional({ nullable: true }).isISO8601(),
   body('firstName').optional().trim().notEmpty(),
@@ -349,7 +358,25 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
     }
 
     const { id } = req.params;
-    const { role, isActive, isPremium, premiumUntil, firstName, lastName, username } = req.body;
+    const { role, isActive, isVerified, isPremium, premiumUntil, firstName, lastName, username } = req.body;
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        role: true,
+        firstName: true,
+        lastName: true
+      }
+    });
+
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'Failed to update user',
+        message: 'User not found'
+      });
+    }
 
     // Prevent admin from deactivating themselves
     if (id === req.user.id && isActive === false) {
@@ -359,11 +386,38 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
       });
     }
 
+    const effectiveRole = role || existingUser.role;
+    const effectiveFirstName = firstName || existingUser.firstName || '';
+    const effectiveLastName = lastName || existingUser.lastName || '';
+    const isSpecialAdmin =
+      effectiveRole === 'ADMIN' &&
+      normalizeFullName(effectiveFirstName, effectiveLastName) === 'kwizera jean de dieu';
+    const mustClearVerification = !isSpecialAdmin && effectiveRole !== 'AUTHOR';
+
+    if (typeof isVerified === 'boolean' && !isSpecialAdmin && effectiveRole !== 'AUTHOR') {
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to update user',
+        message: 'Blue tick can only be assigned to Authors'
+      });
+    }
+
+    if (isSpecialAdmin && isVerified === false) {
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to update user',
+        message: 'Verification cannot be removed from Kwizera Jean de Dieu'
+      });
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id },
       data: {
         ...(role && { role }),
         ...(typeof isActive === 'boolean' && { isActive }),
+        ...(mustClearVerification && { isVerified: false }),
+        ...(typeof isVerified === 'boolean' && { isVerified }),
+        ...(isSpecialAdmin && { isVerified: true }),
         ...(typeof isPremium === 'boolean' && { isPremium }),
         ...(premiumUntil !== undefined && { premiumUntil: premiumUntil ? new Date(premiumUntil) : null }),
         ...(firstName && { firstName }),
@@ -377,6 +431,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
         firstName: true,
         lastName: true,
         role: true,
+        isVerified: true,
         avatar: true,
         isActive: true,
         isPremium: true,

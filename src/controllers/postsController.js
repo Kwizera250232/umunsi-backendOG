@@ -50,7 +50,10 @@ const getPremiumDashboard = async (req, res) => {
             firstName: true,
             lastName: true,
             username: true,
-            avatar: true
+            avatar: true,
+            role: true,
+            isVerified: true,
+            createdAt: true
           }
         },
         category: {
@@ -178,7 +181,10 @@ const getPosts = async (req, res) => {
               firstName: true,
               lastName: true,
               username: true,
-              avatar: true
+              avatar: true,
+              role: true,
+              isVerified: true,
+              createdAt: true
             }
           },
           category: {
@@ -238,7 +244,10 @@ const getPost = async (req, res) => {
             firstName: true,
             lastName: true,
             username: true,
-            avatar: true
+            avatar: true,
+            role: true,
+            isVerified: true,
+            createdAt: true
           }
         },
         category: {
@@ -263,7 +272,10 @@ const getPost = async (req, res) => {
               firstName: true,
               lastName: true,
               username: true,
-              avatar: true
+              avatar: true,
+              role: true,
+              isVerified: true,
+              createdAt: true
             }
           },
           category: {
@@ -383,7 +395,10 @@ const createPost = async (req, res) => {
             firstName: true,
             lastName: true,
             username: true,
-            avatar: true
+            avatar: true,
+            role: true,
+            isVerified: true,
+            createdAt: true
           }
         },
         category: {
@@ -488,7 +503,10 @@ const updatePost = async (req, res) => {
             firstName: true,
             lastName: true,
             username: true,
-            avatar: true
+            avatar: true,
+            role: true,
+            isVerified: true,
+            createdAt: true
           }
         },
         category: {

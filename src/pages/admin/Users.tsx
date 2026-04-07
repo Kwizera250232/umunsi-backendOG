@@ -131,13 +131,18 @@ const Users = () => {
     }
   };
 
-  const handleToggleVerification = async (id: string, currentStatus: boolean) => {
+  const handleToggleVerification = async (targetUser: User) => {
+    if (targetUser.role !== 'AUTHOR') {
+      alert('Blue Tick ihabwa Authors gusa.');
+      return;
+    }
+
     try {
-      await apiClient.updateUser(id, { isVerified: !currentStatus });
-      setUsers(users.map(user => user.id === id ? { ...user, isVerified: !currentStatus } : user));
+      await apiClient.updateUser(targetUser.id, { isVerified: !targetUser.isVerified });
+      setUsers(users.map(user => user.id === targetUser.id ? { ...user, isVerified: !targetUser.isVerified } : user));
     } catch (error) {
       console.error('Error toggling verification:', error);
-      alert('Failed to update verification status');
+      alert('Failed to update blue tick status');
     }
   };
 
@@ -344,6 +349,15 @@ const Users = () => {
               <span>Export</span>
               </button>
             </div>
+                    {user.role === 'AUTHOR' && (
+                      <button
+                        onClick={() => handleToggleVerification(user)}
+                        className={`p-1.5 hover:bg-[#2b2f36] rounded-lg ${user.isVerified ? 'text-amber-400' : 'text-blue-400'}`}
+                        title={user.isVerified ? 'Remove Blue Tick' : 'Give Blue Tick'}
+                      >
+                        {user.isVerified ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                      </button>
+                    )}
           </div>
         </div>
 
@@ -568,12 +582,15 @@ const Users = () => {
                       >
                         {user.isActive ? <Ban className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
                       </button>
-                      <button 
-                        onClick={() => handleToggleVerification(user.id, user.isVerified)}
-                      className={`p-2 hover:bg-[#2b2f36] rounded-lg transition-colors ${user.isVerified ? 'text-amber-400' : 'text-blue-400'}`}
-                      >
-                        {user.isVerified ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                      </button>
+                      {user.role === 'AUTHOR' && (
+                        <button
+                          onClick={() => handleToggleVerification(user)}
+                          className={`p-2 hover:bg-[#2b2f36] rounded-lg transition-colors ${user.isVerified ? 'text-amber-400' : 'text-blue-400'}`}
+                          title={user.isVerified ? 'Remove Blue Tick' : 'Give Blue Tick'}
+                        >
+                          {user.isVerified ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDeleteUser(user.id)}
                       className="p-2 text-gray-500 hover:text-red-400 hover:bg-[#2b2f36] rounded-lg transition-colors"
