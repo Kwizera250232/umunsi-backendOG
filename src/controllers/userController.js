@@ -56,6 +56,7 @@ class UserController {
             avatar: true,
             bio: true,
             phone: true,
+            profileUrl: true,
             createdAt: true,
             updatedAt: true,
             lastLogin: true,
@@ -115,6 +116,7 @@ class UserController {
           avatar: true,
           bio: true,
           phone: true,
+          profileUrl: true,
           createdAt: true,
           updatedAt: true,
           lastLogin: true,
@@ -176,6 +178,7 @@ class UserController {
         bio,
         avatar,
         phone,
+        profileUrl,
         isVerified = false
       } = req.body;
 
@@ -233,6 +236,7 @@ class UserController {
           bio: bio ? bio.trim() : null,
           avatar,
           phone: phone ? phone.trim() : null,
+          profileUrl: profileUrl ? profileUrl.trim() : null,
           isActive: true,
           isVerified
         },
@@ -245,6 +249,7 @@ class UserController {
           role: true,
           isActive: true,
           avatar: true,
+          profileUrl: true,
           bio: true,
           createdAt: true
         }
@@ -280,6 +285,7 @@ class UserController {
         bio,
         avatar,
         phone,
+        profileUrl,
         isActive,
         isVerified,
         isPremium,
@@ -354,6 +360,7 @@ class UserController {
           bio: bio !== undefined ? bio : existingUser.bio,
           avatar: avatar !== undefined ? avatar : existingUser.avatar,
           phone: phone !== undefined ? phone : existingUser.phone,
+          profileUrl: profileUrl !== undefined ? (profileUrl ? profileUrl.trim() : null) : existingUser.profileUrl,
           isActive: isActive !== undefined ? isActive : existingUser.isActive,
           isVerified: isVerified !== undefined ? isVerified : existingUser.isVerified,
           isPremium: isPremium !== undefined ? isPremium : existingUser.isPremium,
@@ -372,6 +379,7 @@ class UserController {
           premiumUntil: true,
           avatar: true,
           bio: true,
+          profileUrl: true,
           updatedAt: true
         }
       });

@@ -50,12 +50,14 @@ const validateRegister = [
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('firstName').trim().isLength({ min: 1, max: 100 }).withMessage('First name must be between 1 and 100 characters'),
   body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name must be between 1 and 100 characters'),
+  body('profileUrl').optional({ nullable: true }).trim().isURL({ require_protocol: true }).withMessage('Profile URL must be a valid URL starting with http:// or https://'),
   body('bio').optional().trim().isLength({ max: 500 }).withMessage('Bio must be less than 500 characters')
 ];
 
 const validateProfileUpdate = [
   body('firstName').optional().trim().isLength({ min: 1, max: 100 }).withMessage('First name must be between 1 and 100 characters'),
   body('lastName').optional().trim().isLength({ min: 1, max: 100 }).withMessage('Last name must be between 1 and 100 characters'),
+  body('profileUrl').optional({ nullable: true }).trim().isURL({ require_protocol: true }).withMessage('Profile URL must be a valid URL starting with http:// or https://'),
   body('bio').optional().trim().isLength({ max: 500 }).withMessage('Bio must be less than 500 characters')
 ];
 

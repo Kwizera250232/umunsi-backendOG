@@ -68,6 +68,7 @@ class AuthController {
         premiumSince: user.premiumSince,
         premiumUntil: user.premiumUntil,
         avatar: user.avatar,
+        profileUrl: user.profileUrl,
         bio: user.bio,
         isActive: user.isActive,
         lastLogin: user.lastLogin
@@ -100,6 +101,7 @@ class AuthController {
         password,
         firstName,
         lastName,
+        profileUrl,
         bio,
         avatar
       } = req.body;
@@ -156,6 +158,7 @@ class AuthController {
           lastName: lastName.trim(),
           role: 'USER',
           bio: bio ? bio.trim() : null,
+          profileUrl: profileUrl ? profileUrl.trim() : null,
           avatar,
           isActive: true
         },
@@ -171,6 +174,7 @@ class AuthController {
           premiumUntil: true,
           isActive: true,
           avatar: true,
+          profileUrl: true,
           bio: true,
           createdAt: true
         }
@@ -222,6 +226,7 @@ class AuthController {
           premiumSince: true,
           premiumUntil: true,
           avatar: true,
+          profileUrl: true,
           bio: true,
           isActive: true,
           lastLogin: true,
@@ -258,7 +263,7 @@ class AuthController {
   async updateProfile(req, res) {
     try {
       const userId = req.user.id;
-      const { firstName, lastName, avatar, bio } = req.body;
+      const { firstName, lastName, avatar, bio, profileUrl } = req.body;
 
       const updatedUser = await prisma.user.update({
         where: { id: userId },
@@ -266,6 +271,7 @@ class AuthController {
           firstName: firstName !== undefined ? firstName.trim() : undefined,
           lastName: lastName !== undefined ? lastName.trim() : undefined,
           avatar: avatar !== undefined ? avatar : undefined,
+          profileUrl: profileUrl !== undefined ? (profileUrl ? profileUrl.trim() : null) : undefined,
           bio: bio !== undefined ? bio.trim() : undefined,
           updatedAt: new Date()
         },
@@ -280,6 +286,7 @@ class AuthController {
           premiumSince: true,
           premiumUntil: true,
           avatar: true,
+          profileUrl: true,
           bio: true,
           isActive: true,
           createdAt: true,

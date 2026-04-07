@@ -51,6 +51,7 @@ const getPremiumDashboard = async (req, res) => {
             lastName: true,
             username: true,
             avatar: true,
+            profileUrl: true,
             role: true,
             isVerified: true,
             createdAt: true
@@ -182,6 +183,7 @@ const getPosts = async (req, res) => {
               lastName: true,
               username: true,
               avatar: true,
+              profileUrl: true,
               role: true,
               isVerified: true,
               createdAt: true
@@ -245,6 +247,7 @@ const getPost = async (req, res) => {
             lastName: true,
             username: true,
             avatar: true,
+            profileUrl: true,
             role: true,
             isVerified: true,
             createdAt: true
@@ -273,6 +276,7 @@ const getPost = async (req, res) => {
               lastName: true,
               username: true,
               avatar: true,
+              profileUrl: true,
               role: true,
               isVerified: true,
               createdAt: true
@@ -396,6 +400,7 @@ const createPost = async (req, res) => {
             lastName: true,
             username: true,
             avatar: true,
+            profileUrl: true,
             role: true,
             isVerified: true,
             createdAt: true
@@ -504,6 +509,7 @@ const updatePost = async (req, res) => {
             lastName: true,
             username: true,
             avatar: true,
+            profileUrl: true,
             role: true,
             isVerified: true,
             createdAt: true

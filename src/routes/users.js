@@ -12,8 +12,9 @@ const validateUser = [
   body('password').optional().isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('firstName').trim().isLength({ min: 1, max: 100 }).withMessage('First name must be between 1 and 100 characters'),
   body('lastName').trim().isLength({ min: 1, max: 100 }).withMessage('Last name must be between 1 and 100 characters'),
-  body('role').optional().isIn(['ADMIN', 'EDITOR', 'AUTHOR']).withMessage('Role must be ADMIN, EDITOR, or AUTHOR'),
+  body('role').optional().isIn(['ADMIN', 'EDITOR', 'AUTHOR', 'USER']).withMessage('Role must be ADMIN, EDITOR, AUTHOR, or USER'),
   body('bio').optional().trim().isLength({ max: 500 }).withMessage('Bio must be less than 500 characters'),
+  body('profileUrl').optional({ nullable: true }).trim().isURL({ require_protocol: true }).withMessage('Profile URL must be a valid URL starting with http:// or https://'),
   body('isActive').optional().isBoolean().withMessage('isActive must be a boolean')
 ];
 

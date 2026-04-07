@@ -24,6 +24,7 @@ model User {
   avatar     String?
   bio        String?
   phone      String?
+  profileUrl String?
   isActive   Boolean  @default(true)
   isVerified Boolean  @default(false)
   lastLogin  DateTime?

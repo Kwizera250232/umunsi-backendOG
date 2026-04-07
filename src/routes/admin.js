@@ -299,6 +299,7 @@ router.get('/users', authenticateToken, requireEditor, [
           role: true,
           isVerified: true,
           avatar: true,
+          profileUrl: true,
           isActive: true,
           isPremium: true,
           premiumUntil: true,
@@ -344,6 +345,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
   body('isVerified').optional().isBoolean(),
   body('isPremium').optional().isBoolean(),
   body('premiumUntil').optional({ nullable: true }).isISO8601(),
+  body('profileUrl').optional({ nullable: true }).isURL({ require_protocol: true }),
   body('firstName').optional().trim().notEmpty(),
   body('lastName').optional().trim().notEmpty(),
   body('username').optional().trim().notEmpty()
@@ -358,7 +360,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
     }
 
     const { id } = req.params;
-    const { role, isActive, isVerified, isPremium, premiumUntil, firstName, lastName, username } = req.body;
+    const { role, isActive, isVerified, isPremium, premiumUntil, firstName, lastName, username, profileUrl } = req.body;
 
     const existingUser = await prisma.user.findUnique({
       where: { id },
@@ -420,6 +422,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
         ...(isSpecialAdmin && { isVerified: true }),
         ...(typeof isPremium === 'boolean' && { isPremium }),
         ...(premiumUntil !== undefined && { premiumUntil: premiumUntil ? new Date(premiumUntil) : null }),
+        ...(profileUrl !== undefined && { profileUrl: profileUrl ? profileUrl.trim() : null }),
         ...(firstName && { firstName }),
         ...(lastName && { lastName }),
         ...(username && { username })
@@ -433,6 +436,7 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
         role: true,
         isVerified: true,
         avatar: true,
+        profileUrl: true,
         isActive: true,
         isPremium: true,
         premiumUntil: true,
