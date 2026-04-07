@@ -29,6 +29,46 @@ const getMailTransport = () => {
   });
 };
 
+const getTwilioConfig = () => {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+
+  if (!accountSid || !authToken || !fromNumber) return null;
+  return { accountSid, authToken, fromNumber };
+};
+
+const sendSmsWithTwilio = async (toRaw, message) => {
+  const config = getTwilioConfig();
+  if (!config) {
+    return { ok: false, error: 'Twilio config missing' };
+  }
+
+  const to = `+${normalizePhone(toRaw)}`;
+  const endpoint = `https://api.twilio.com/2010-04-01/Accounts/${config.accountSid}/Messages.json`;
+  const form = new URLSearchParams({
+    To: to,
+    From: config.fromNumber,
+    Body: message
+  });
+
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${config.accountSid}:${config.authToken}`).toString('base64')}`,
+      'Content-Type': 'application/x-www-form-urlencoded'
+    },
+    body: form.toString()
+  });
+
+  if (!response.ok) {
+    const data = await response.text();
+    return { ok: false, error: data.slice(0, 300) };
+  }
+
+  return { ok: true };
+};
+
 const toResponse = (ad) => ({
   id: ad.id,
   userId: ad.userId,
@@ -425,6 +465,7 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
   body('userIds').optional().isArray(),
   body('sendEmail').optional().isBoolean(),
   body('sendPhone').optional().isBoolean(),
+  body('sendSms').optional().isBoolean(),
   body('subject').optional().isString().isLength({ min: 3, max: 150 })
 ], async (req, res) => {
   try {
@@ -433,7 +474,7 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
       return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
     }
 
-    const { message, userIds = [], sendEmail = true, sendPhone = true, subject } = req.body;
+    const { message, userIds = [], sendEmail = true, sendPhone = true, sendSms = true, subject } = req.body;
 
     const where = {
       isActive: true,
@@ -493,6 +534,26 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
           }))
       : [];
 
+    let smsSent = 0;
+    let smsError = null;
+
+    if (sendSms) {
+      if (!getTwilioConfig()) {
+        smsError = 'Twilio ntabwo irashyirwaho kuri server.';
+      } else {
+        const smsTargets = users.filter((u) => Boolean(u.phone));
+        const smsResults = await Promise.allSettled(
+          smsTargets.map((u) => sendSmsWithTwilio(u.phone, message))
+        );
+        smsSent = smsResults.filter((r) => r.status === 'fulfilled' && r.value?.ok).length;
+
+        const failed = smsResults.find((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.ok));
+        if (failed && !smsError) {
+          smsError = 'Hari SMS zitoherejwe zose. Reba Twilio config cyangwa numero.';
+        }
+      }
+    }
+
     return res.json({
       success: true,
       message: 'Broadcast yoherejwe.',
@@ -501,6 +562,8 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
         totalTargets: users.length,
         emailsSent,
         emailError,
+        smsSent,
+        smsError,
         phoneTargets,
         sentAt: created.createdAt
       }
