@@ -18,6 +18,7 @@ const adminRoutes = require('./routes/admin');
 const mediaRoutes = require('./routes/media');
 const postsRoutes = require('./routes/posts');
 const paymentsRoutes = require('./routes/payments');
+const classifiedsRoutes = require('./routes/classifieds');
 const { DEFAULT_MESSAGE, getMaintenanceState } = require('./utils/maintenance');
 const { getAdsBannersState } = require('./utils/adsBanners');
 
@@ -394,6 +395,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/media', mediaRoutes);
 app.use('/api/posts', postsRoutes);
 app.use('/api/payments', paymentsRoutes);
+app.use('/api/classifieds', classifiedsRoutes);
 
 // Dynamic metadata for article sharing previews
 app.get(['/post/:slug', '/article/:id'], async (req, res, next) => {

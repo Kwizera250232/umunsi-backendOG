@@ -36,8 +36,50 @@ model User {
   posts Post[]
   supportPayments SupportPayment[]
   premiumPostAccess PremiumPostAccess[]
+  classifiedAds ClassifiedAd[] @relation("ClassifiedAuthor")
+  reviewedClassifiedAds ClassifiedAd[] @relation("ClassifiedReviewer")
+  classifiedBroadcasts ClassifiedBroadcast[] @relation("ClassifiedBroadcastCreator")
 
   @@map("users")
+}
+
+model ClassifiedAd {
+  id             String   @id @default(cuid())
+  userId         String
+  reviewedById   String?
+  category       String
+  title          String
+  description    String
+  phone          String
+  email          String
+  attachmentName String?
+  attachmentUrl  String?
+  durationDays   Int
+  priceRwf       Int
+  status         String   @default("PENDING")
+  reviewNote     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user       User  @relation("ClassifiedAuthor", fields: [userId], references: [id], onDelete: Cascade)
+  reviewedBy User? @relation("ClassifiedReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([category])
+  @@index([status])
+  @@map("classified_ads")
+}
+
+model ClassifiedBroadcast {
+  id          String   @id @default(cuid())
+  message     String
+  createdById String
+  createdAt   DateTime @default(now())
+
+  createdBy User @relation("ClassifiedBroadcastCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("classified_broadcasts")
 }
 
 model SupportPayment {
