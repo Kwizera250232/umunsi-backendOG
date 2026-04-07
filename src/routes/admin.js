@@ -368,7 +368,8 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
         id: true,
         role: true,
         firstName: true,
-        lastName: true
+        lastName: true,
+        profileUrl: true
       }
     });
 
@@ -391,10 +392,19 @@ router.put('/users/:id', authenticateToken, requireAdmin, [
     const effectiveRole = role || existingUser.role;
     const effectiveFirstName = firstName || existingUser.firstName || '';
     const effectiveLastName = lastName || existingUser.lastName || '';
+    const effectiveProfileUrl = profileUrl !== undefined ? profileUrl : existingUser.profileUrl;
     const isSpecialAdmin =
       effectiveRole === 'ADMIN' &&
       normalizeFullName(effectiveFirstName, effectiveLastName) === 'kwizera jean de dieu';
     const mustClearVerification = !isSpecialAdmin && effectiveRole !== 'AUTHOR';
+
+    if (effectiveRole === 'AUTHOR' && !effectiveProfileUrl) {
+      return res.status(400).json({
+        success: false,
+        error: 'Failed to update user',
+        message: 'Author account requires profileUrl'
+      });
+    }
 
     if (typeof isVerified === 'boolean' && !isSpecialAdmin && effectiveRole !== 'AUTHOR') {
       return res.status(400).json({

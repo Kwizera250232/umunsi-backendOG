@@ -196,6 +196,14 @@ class UserController {
         });
       }
 
+      const normalizedRole = role.toUpperCase();
+      if (normalizedRole === 'AUTHOR' && !profileUrl) {
+        return res.status(400).json({
+          error: 'Missing required field',
+          details: 'Author account requires profileUrl'
+        });
+      }
+
       // Check if username already exists
       const existingUsername = await prisma.user.findUnique({
         where: { username }
@@ -232,7 +240,7 @@ class UserController {
           password: hashedPassword,
           firstName: firstName.trim(),
           lastName: lastName.trim(),
-          role: role.toUpperCase(),
+          role: normalizedRole,
           bio: bio ? bio.trim() : null,
           avatar,
           phone: phone ? phone.trim() : null,
@@ -349,6 +357,16 @@ class UserController {
       }
 
       // Update user
+      const effectiveRole = role ? role.toUpperCase() : existingUser.role;
+      const effectiveProfileUrl = profileUrl !== undefined ? profileUrl : existingUser.profileUrl;
+
+      if (effectiveRole === 'AUTHOR' && !effectiveProfileUrl) {
+        return res.status(400).json({
+          error: 'Missing required field',
+          details: 'Author account requires profileUrl'
+        });
+      }
+
       const updatedUser = await prisma.user.update({
         where: { id },
         data: {
