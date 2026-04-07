@@ -1,4 +1,9 @@
 param(
+  [string]$SmtpHost,
+  [string]$SmtpPort,
+  [string]$SmtpUser,
+  [string]$SmtpPassword,
+  [string]$SmtpFrom,
   [string]$TwilioAccountSid,
   [string]$TwilioAuthToken,
   [string]$TwilioFromNumber,
@@ -26,6 +31,11 @@ if (-not $remoteUser -or -not $remotePassword) {
 }
 
 $pairs = @{
+  'SMTP_HOST' = $SmtpHost
+  'SMTP_PORT' = $SmtpPort
+  'SMTP_USER' = $SmtpUser
+  'SMTP_PASSWORD' = $SmtpPassword
+  'SMTP_FROM' = $SmtpFrom
   'TWILIO_ACCOUNT_SID' = $TwilioAccountSid
   'TWILIO_AUTH_TOKEN' = $TwilioAuthToken
   'TWILIO_FROM_NUMBER' = $TwilioFromNumber
@@ -45,7 +55,7 @@ foreach ($key in $pairs.Keys) {
 }
 
 if ($setLines.Count -eq 0) {
-  Write-Host 'No SMS values provided. Nothing to update.' -ForegroundColor Yellow
+  Write-Host 'No SMTP/SMS values provided. Nothing to update.' -ForegroundColor Yellow
   exit 0
 }
 
@@ -80,4 +90,4 @@ if ($LASTEXITCODE -ne 0) {
   throw 'Failed to update SMS secrets on server.'
 }
 
-Write-Host 'Done. SMS secrets updated and backend restarted.' -ForegroundColor Green
+Write-Host 'Done. SMTP/SMS secrets updated and backend restarted.' -ForegroundColor Green
