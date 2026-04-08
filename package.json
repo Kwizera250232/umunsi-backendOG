@@ -15,7 +15,8 @@
     "uploads:stats": "node scripts/manage-uploads.js stats",
     "uploads:clean": "node scripts/manage-uploads.js clean",
     "uploads:structure": "node scripts/manage-uploads.js structure",
-    "uploads:maintenance": "node scripts/manage-uploads.js maintenance"
+    "uploads:maintenance": "node scripts/manage-uploads.js maintenance",
+    "import:wordpress": "node scripts/import-wordpress-wxr.js"
   },
   "keywords": [
     "news",
@@ -41,7 +42,8 @@
     "nodemailer": "^6.9.7",
     "prisma": "^5.7.1",
     "sharp": "^0.34.3",
-    "slugify": "^1.6.6"
+    "slugify": "^1.6.6",
+    "xml2js": "^0.6.2"
   },
   "prisma": {
     "seed": "node prisma/seed.js"

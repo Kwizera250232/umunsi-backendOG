@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, optionalAuth, requireEditor, requireAdmin } = require('../middleware/auth');
+const { authenticateToken, optionalAuth, requireAuthor } = require('../middleware/auth');
 const {
   getPosts,
   getPost,
@@ -26,16 +26,16 @@ router.get('/premium-dashboard', authenticateToken, getPremiumDashboard);
 router.get('/:id', optionalAuth, getPost);
 
 // Protected routes (require authentication)
-// POST /api/posts - Create new post (requires EDITOR role or higher)
-router.post('/', authenticateToken, requireEditor, createPost);
+// POST /api/posts - Create new post (requires AUTHOR role or higher)
+router.post('/', authenticateToken, requireAuthor, createPost);
 
-// PUT /api/posts/:id - Update post (requires EDITOR role or higher)
-router.put('/:id', authenticateToken, requireEditor, updatePost);
+// PUT /api/posts/:id - Update post (requires AUTHOR role or higher)
+router.put('/:id', authenticateToken, requireAuthor, updatePost);
 
-// DELETE /api/posts/bulk-delete - Delete multiple posts (requires EDITOR role or higher)
-router.delete('/bulk-delete', authenticateToken, requireEditor, deletePosts);
+// DELETE /api/posts/bulk-delete - Delete multiple posts (requires AUTHOR role or higher)
+router.delete('/bulk-delete', authenticateToken, requireAuthor, deletePosts);
 
-// DELETE /api/posts/:id - Delete single post (requires EDITOR role or higher)
-router.delete('/:id', authenticateToken, requireEditor, deletePost);
+// DELETE /api/posts/:id - Delete single post (requires AUTHOR role or higher)
+router.delete('/:id', authenticateToken, requireAuthor, deletePost);
 
 module.exports = router;

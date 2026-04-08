@@ -27,16 +27,84 @@ const getServerBaseUrl = () => {
   return apiUrl.replace('/api', '');
 };
 
+const resolveArticleImageSrc = (src: string) => {
+  if (!src) return src;
+  if (src.startsWith('http://') || src.startsWith('https://') || src.startsWith('data:')) return src;
+  if (src.startsWith('/')) return `${getServerBaseUrl()}${src}`;
+  return `${getServerBaseUrl()}/uploads/${src}`;
+};
+
+const extractFirstImageFromHtml = (html?: string) => {
+  if (!html) return null;
+  const match = html.match(/<img[^>]*src=["']([^"']+)["'][^>]*>/i);
+  if (!match || !match[1]) return null;
+  return resolveArticleImageSrc(match[1].trim());
+};
+
+const hasBlockLevelMarkup = (html: string) => /<(p|div|h[1-6]|ul|ol|li|blockquote|figure|table|iframe|img|video|br)\b/i.test(html);
+
+const renderStandaloneUrlBlock = (rawUrl: string) => {
+  const url = rawUrl.replace(/&amp;/g, '&').trim();
+  return `<p><a href="${url}" target="_blank" rel="noopener noreferrer" class="underline break-all">${url}</a></p>`;
+};
+
+const buildParagraphMarkup = (rawText: string) => {
+  const normalized = rawText.replace(/\r\n/g, '\n').trim();
+  if (!normalized) return '';
+
+  const byBlankLines = normalized
+    .split(/\n{2,}/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+
+  const sourceParagraphs = byBlankLines.length > 1
+    ? byBlankLines
+    : (() => {
+        const compact = normalized.replace(/\s+/g, ' ').trim();
+        const sentences = compact
+          .split(/(?<=[.!?])\s+/)
+          .map((part) => part.trim())
+          .filter(Boolean);
+
+        if (sentences.length >= 4) {
+          const grouped: string[] = [];
+          for (let i = 0; i < sentences.length; i += 2) {
+            grouped.push(sentences.slice(i, i + 2).join(' '));
+          }
+          return grouped;
+        }
+
+        return [compact];
+      })();
+
+  return sourceParagraphs
+    .map((paragraph) => `<p>${paragraph.replace(/\n+/g, '<br />')}</p>`)
+    .join('');
+};
+
 const normalizeArticleHtml = (content?: string) => {
-  return content?.replace(
+  const raw = String(content || '').trim();
+  if (!raw) return '';
+
+  let html = raw.replace(/\[embed\]\s*(https?:\/\/[^\s\]]+)\s*\[\/embed\]/gi, (_match, url) => {
+    const safeUrl = String(url || '').trim();
+    if (!safeUrl) return '';
+    return `<p><a href="${safeUrl}" target="_blank" rel="noopener noreferrer">${safeUrl}</a></p>`;
+  });
+
+  if (!hasBlockLevelMarkup(html)) {
+    html = buildParagraphMarkup(html);
+  }
+
+  html = html.replace(/<p>\s*((?:https?:\/\/)[^<\s]+)\s*<\/p>/gi, (_match, url) => renderStandaloneUrlBlock(url));
+
+  return html.replace(
     /<img([^>]*)src="([^"]*)"([^>]*)>/gi,
     (match, before, src, after) => {
-      const correctedSrc = src.startsWith('/uploads/')
-        ? `${getServerBaseUrl()}${src}`
-        : src.startsWith('http') ? src : `${getServerBaseUrl()}/uploads/${src}`;
+      const correctedSrc = resolveArticleImageSrc(src);
       return `<img${before}src="${correctedSrc}"${after} class="w-full h-auto rounded-lg my-4" onerror="this.style.display='none'">`;
     }
-  ) || '';
+  );
 };
 
 const PostPage = () => {
@@ -53,6 +121,7 @@ const PostPage = () => {
   const [likeCount, setLikeCount] = useState(0);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [authorAvatarLoadFailed, setAuthorAvatarLoadFailed] = useState(false);
   
   // Comments state
   const [comments, setComments] = useState<any[]>([]);
@@ -70,6 +139,15 @@ const PostPage = () => {
   }, [postIdentifier]);
 
   const normalizedContent = normalizeArticleHtml(post?.content);
+  const fallbackFeaturedImage = extractFirstImageFromHtml(normalizedContent);
+  const effectiveFeaturedImage = post?.featuredImage || fallbackFeaturedImage || '';
+
+  const authorDisplayName = `${post?.author?.firstName || ''} ${post?.author?.lastName || ''}`.trim() || post?.author?.username || 'Unknown';
+  const authorInitial = (authorDisplayName || 'U').charAt(0).toUpperCase();
+
+  useEffect(() => {
+    setAuthorAvatarLoadFailed(false);
+  }, [post?.author?.avatar, post?.author?.id]);
 
   const fetchPost = async () => {
     try {
@@ -182,6 +260,12 @@ const PostPage = () => {
     return `${getServerBaseUrl()}${url}`;
   };
 
+  const getAuthorAvatarUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    return `${getServerBaseUrl()}${url}`;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0b0e11] flex items-center justify-center">
@@ -265,11 +349,20 @@ const PostPage = () => {
                 <div className="flex items-center justify-between flex-wrap gap-3 pb-4 border-b border-[#2b2f36]">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-[#fcd535] flex items-center justify-center">
-                      <User className="w-5 h-5 text-[#0b0e11]" />
+                      {post.author?.avatar && !authorAvatarLoadFailed ? (
+                        <img
+                          src={getAuthorAvatarUrl(post.author.avatar)}
+                          alt={authorDisplayName}
+                          className="w-full h-full object-cover rounded-full"
+                          onError={() => setAuthorAvatarLoadFailed(true)}
+                        />
+                      ) : (
+                        <span className="text-[#0b0e11] font-bold text-sm">{authorInitial}</span>
+                      )}
                     </div>
                     <div>
                       <p className="text-white text-sm font-medium">
-                        {post.author?.firstName} {post.author?.lastName}
+                        {authorDisplayName}
                       </p>
                       <p className="text-gray-500 text-xs">Author</p>
                     </div>
@@ -294,10 +387,10 @@ const PostPage = () => {
               </div>
 
               {/* Featured Image */}
-              {post.featuredImage && (
+              {effectiveFeaturedImage && (
                 <div className="px-4 py-4">
                   <img
-                    src={getImageUrl(post.featuredImage)}
+                    src={getImageUrl(effectiveFeaturedImage)}
                     alt={post.title}
                     className="w-full h-auto rounded-lg"
                   />
@@ -352,7 +445,7 @@ const PostPage = () => {
                 )}
 
                 <div 
-                  className="prose prose-invert prose-lg max-w-none text-gray-300"
+                  className="article-content-readable prose prose-invert prose-lg max-w-none text-gray-300"
                   style={{ wordBreak: 'break-word' }}
                   dangerouslySetInnerHTML={{ __html: normalizedContent }}
                 />

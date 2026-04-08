@@ -431,11 +431,13 @@ app.get(['/post/:slug', '/article/:id'], async (req, res, next) => {
       });
     }
 
+    const indexHtmlPath = path.join(frontendBuildPath, 'index.html');
+
     if (!post) {
-      return next();
+      const notFoundHtml = await fs.promises.readFile(indexHtmlPath, 'utf8');
+      return res.status(404).send(notFoundHtml);
     }
 
-    const indexHtmlPath = path.join(frontendBuildPath, 'index.html');
     const indexHtml = await fs.promises.readFile(indexHtmlPath, 'utf8');
     const metaTags = buildMetaTags(req, post);
     const htmlWithMeta = injectArticleMeta(indexHtml, metaTags);

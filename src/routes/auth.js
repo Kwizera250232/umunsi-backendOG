@@ -66,6 +66,23 @@ const validatePasswordChange = [
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
 ];
 
+const validateForgotPassword = [
+  body('email').isEmail().normalizeEmail().withMessage('Must be a valid email address')
+];
+
+const validateResetPassword = [
+  body('token').isLength({ min: 1 }).withMessage('Token is required'),
+  body('email').isEmail().normalizeEmail().withMessage('Must be a valid email address'),
+  body('code').trim().isLength({ min: 4, max: 12 }).withMessage('Verification code is required'),
+  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+];
+
+const validateChangePasswordWithEmail = [
+  body('email').isEmail().normalizeEmail().withMessage('Must be a valid email address'),
+  body('oldPassword').isLength({ min: 1 }).withMessage('Old password is required'),
+  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
+];
+
 // Validation error handler
 const handleValidationErrors = (req, res, next) => {
   const errors = validationResult(req);
@@ -93,6 +110,27 @@ router.post('/register',
   validateRegister, 
   handleValidationErrors,
   authController.register
+);
+
+router.post(
+  '/forgot-password',
+  validateForgotPassword,
+  handleValidationErrors,
+  authController.forgotPassword
+);
+
+router.post(
+  '/reset-password',
+  validateResetPassword,
+  handleValidationErrors,
+  authController.resetPassword
+);
+
+router.post(
+  '/change-password-with-email',
+  validateChangePasswordWithEmail,
+  handleValidationErrors,
+  authController.changePasswordWithEmail
 );
 
 // Protected routes

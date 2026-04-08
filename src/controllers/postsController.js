@@ -6,6 +6,21 @@ const prisma = new PrismaClient();
 
 const isAdminRequest = (req) => req.user && req.user.role === 'ADMIN';
 
+const extractFirstImageFromContent = (content = '') => {
+  const match = String(content).match(/<img[^>]*src=["']([^"']+)["'][^>]*>/i);
+  if (!match || !match[1]) return null;
+  return match[1].trim();
+};
+
+const withFeaturedImageFallback = (post) => {
+  if (!post) return post;
+  if (post.featuredImage) return post;
+  return {
+    ...post,
+    featuredImage: extractFirstImageFromContent(post.content) || null
+  };
+};
+
 const sanitizePostForRole = (post, isAdmin) => {
   if (isAdmin) return post;
   const { viewCount, ...rest } = post;
@@ -134,6 +149,7 @@ const getPosts = async (req, res) => {
       status,
       category,
       author,
+      authorId,
       search,
       sortBy = 'createdAt',
       sortOrder = 'desc'
@@ -153,8 +169,8 @@ const getPosts = async (req, res) => {
       where.categoryId = category;
     }
     
-    if (author) {
-      where.authorId = author;
+    if (author || authorId) {
+      where.authorId = author || authorId;
     }
     
     if (search) {
@@ -205,7 +221,7 @@ const getPosts = async (req, res) => {
     // Convert tags from string to array for each post
     const postsWithTagsArray = posts.map(post => {
       const mappedPost = {
-        ...post,
+        ...withFeaturedImageFallback(post),
         tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       };
 
@@ -312,7 +328,7 @@ const getPost = async (req, res) => {
 
     // Convert tags from string to array
     const postWithTagsArray = {
-      ...post,
+      ...withFeaturedImageFallback(post),
       tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
     };
 
@@ -366,12 +382,14 @@ const createPost = async (req, res) => {
     } = req.body;
 
     const authorId = req.user.id;
+    const isAuthorOnly = req.user.role === 'AUTHOR';
+    const safeStatus = isAuthorOnly ? 'DRAFT' : status;
 
     // Generate slug
     const slug = await generateSlug(title);
 
     // Set publishedAt if status is PUBLISHED
-    const publishedAt = status === 'PUBLISHED' ? new Date() : null;
+    const publishedAt = safeStatus === 'PUBLISHED' ? new Date() : null;
 
     const post = await prisma.post.create({
       data: {
@@ -380,12 +398,12 @@ const createPost = async (req, res) => {
         content,
         excerpt,
         featuredImage,
-        status,
-        isPremium,
+        status: safeStatus,
+        isPremium: isAuthorOnly ? false : isPremium,
         publishedAt,
         categoryId: categoryId || null,
-        isFeatured,
-        isPinned,
+        isFeatured: isAuthorOnly ? false : isFeatured,
+        isPinned: isAuthorOnly ? false : isPinned,
         allowComments,
         tags: Array.isArray(tags) ? tags.join(',') : tags,
         metaTitle,
@@ -468,6 +486,17 @@ const updatePost = async (req, res) => {
       });
     }
 
+    const isAuthorOnly = req.user.role === 'AUTHOR';
+    if (isAuthorOnly && existingPost.authorId !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        message: 'You can only update your own posts'
+      });
+    }
+
+    const nextStatus = isAuthorOnly ? 'DRAFT' : status;
+
     // Generate new slug if title changed
     let slug = existingPost.slug;
     if (title && title !== existingPost.title) {
@@ -476,9 +505,9 @@ const updatePost = async (req, res) => {
 
     // Handle status change to PUBLISHED
     let publishedAt = existingPost.publishedAt;
-    if (status === 'PUBLISHED' && existingPost.status !== 'PUBLISHED') {
+    if (nextStatus === 'PUBLISHED' && existingPost.status !== 'PUBLISHED') {
       publishedAt = new Date();
-    } else if (status !== 'PUBLISHED') {
+    } else if (nextStatus && nextStatus !== 'PUBLISHED') {
       publishedAt = null;
     }
 
@@ -490,12 +519,12 @@ const updatePost = async (req, res) => {
         ...(content && { content }),
         ...(excerpt !== undefined && { excerpt }),
         ...(featuredImage !== undefined && { featuredImage }),
-        ...(status && { status }),
-        ...(isPremium !== undefined && { isPremium }),
+        ...((nextStatus !== undefined && nextStatus !== null) && { status: nextStatus }),
+        ...(isPremium !== undefined && { isPremium: isAuthorOnly ? false : isPremium }),
         ...(publishedAt !== undefined && { publishedAt }),
         ...(categoryId !== undefined && { categoryId: categoryId || null }),
-        ...(isFeatured !== undefined && { isFeatured }),
-        ...(isPinned !== undefined && { isPinned }),
+        ...(isFeatured !== undefined && { isFeatured: isAuthorOnly ? false : isFeatured }),
+        ...(isPinned !== undefined && { isPinned: isAuthorOnly ? false : isPinned }),
         ...(allowComments !== undefined && { allowComments }),
         ...(tags && { tags: Array.isArray(tags) ? tags.join(',') : tags }),
         ...(metaTitle !== undefined && { metaTitle }),
@@ -561,6 +590,14 @@ const deletePost = async (req, res) => {
       });
     }
 
+    if (req.user.role === 'AUTHOR' && post.authorId !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        error: 'Access denied',
+        message: 'You can only delete your own posts'
+      });
+    }
+
     await prisma.post.delete({
       where: { id }
     });
@@ -588,6 +625,23 @@ const deletePosts = async (req, res) => {
         success: false,
         error: 'No post IDs provided'
       });
+    }
+
+    if (req.user.role === 'AUTHOR') {
+      const ownCount = await prisma.post.count({
+        where: {
+          id: { in: ids },
+          authorId: req.user.id
+        }
+      });
+
+      if (ownCount !== ids.length) {
+        return res.status(403).json({
+          success: false,
+          error: 'Access denied',
+          message: 'You can only delete your own posts'
+        });
+      }
     }
 
     const result = await prisma.post.deleteMany({

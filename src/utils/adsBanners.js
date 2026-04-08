@@ -6,6 +6,7 @@ const STATE_FILE = path.join(DATA_DIR, 'ads-banners.json');
 
 const defaultSlot = (size, label) => ({
   enabled: false,
+  adCode: '',
   imageUrl: '',
   targetUrl: '',
   altText: label,
@@ -47,6 +48,7 @@ function normalizeState(input = {}) {
     normalizedSlots[key] = {
       ...defaults,
       enabled: !!next.enabled,
+      adCode: (next.adCode || '').trim(),
       imageUrl: (next.imageUrl || '').trim(),
       targetUrl: (next.targetUrl || '').trim(),
       altText: (next.altText || defaults.altText).trim(),

@@ -11,11 +11,15 @@ export interface ApiResponse<T = any> {
 
 export interface PaginatedResponse<T> {
   data: T[];
+  users?: T[];
   pagination: {
     page: number;
     limit: number;
     total: number;
     totalPages: number;
+    currentPage?: number;
+    totalItems?: number;
+    itemsPerPage?: number;
   };
 }
 
@@ -603,10 +607,38 @@ class ApiClient {
     if (params?.role) searchParams.append('role', params.role);
     if (params?.status) searchParams.append('status', params.status);
 
-    const response = await this.request<PaginatedResponse<User>>(
+    const response = await this.request<PaginatedResponse<User> & { users?: User[] }>(
       `/users?${searchParams.toString()}`
     );
-    return response;
+
+    const users = Array.isArray(response.data)
+      ? response.data
+      : Array.isArray(response.users)
+        ? response.users
+        : [];
+
+    const rawPagination = response.pagination || ({} as PaginatedResponse<User>['pagination']);
+    const page = Number(rawPagination.page ?? rawPagination.currentPage ?? params?.page ?? 1);
+    const fallbackLimit = params?.limit ?? (users.length > 0 ? users.length : 10);
+    const limit = Number(rawPagination.limit ?? rawPagination.itemsPerPage ?? fallbackLimit);
+    const total = Number(rawPagination.total ?? rawPagination.totalItems ?? users.length);
+    const totalPages = Number(rawPagination.totalPages ?? Math.max(1, Math.ceil(total / Math.max(1, limit))));
+
+    return {
+      ...response,
+      data: users,
+      users,
+      pagination: {
+        ...rawPagination,
+        page,
+        limit,
+        total,
+        totalPages,
+        currentPage: page,
+        totalItems: total,
+        itemsPerPage: limit,
+      },
+    };
   }
 
   async createUser(userData: {

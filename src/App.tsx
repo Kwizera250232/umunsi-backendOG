@@ -82,6 +82,7 @@ function App() {
                 <Route path="/category/:slug" element={<CategoryPage />} />
                 <Route path="/post/:slug" element={<PostPage />} />
                 <Route path="/article/:id" element={<PostPage />} />
+                 <Route path="/:year/:month/:day/:slug" element={<PostPage />} />
                 <Route path="/newsletter" element={<Newsletter />} />
                 <Route path="/profile" element={<ProtectedProfile />} />
               </Routes>
