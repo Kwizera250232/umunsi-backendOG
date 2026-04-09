@@ -15,7 +15,7 @@
 #   UMUNSI_DEPLOY_CREDENTIAL_FILE (override default secure credential file path)
 # Optional environment variables:
 #   UMUNSI_SERVER_HOST (default: 93.127.186.217)
-#   UMUNSI_SERVER_HOSTKEY (default: ssh-ed25519 255 SHA256:pluXiqOiYsEH1N2eaOqo+v1qGAN5ysG06geZCbqX9oc)
+#   UMUNSI_SERVER_HOSTKEY (default: ssh-ed25519 255 SHA256:jYsWizDft9Sm+hAuCTR9zWtpWeehF5XLunkPQPf/IBo)
 #   UMUNSI_PUBLIC_DIR (default: /home/umunsi/backend-api/public)
 #   UMUNSI_PM2_HOME (default: /home/umunsi/.pm2)
 #   UMUNSI_PM2_APP (default: umunsi-backend)
@@ -23,7 +23,7 @@
 $ErrorActionPreference = 'Stop'
 
 $serverHost = if ($env:UMUNSI_SERVER_HOST) { $env:UMUNSI_SERVER_HOST } else { '93.127.186.217' }
-$serverHostKey = if ($env:UMUNSI_SERVER_HOSTKEY) { $env:UMUNSI_SERVER_HOSTKEY } else { 'ssh-ed25519 255 SHA256:pluXiqOiYsEH1N2eaOqo+v1qGAN5ysG06geZCbqX9oc' }
+$serverHostKey = if ($env:UMUNSI_SERVER_HOSTKEY) { $env:UMUNSI_SERVER_HOSTKEY } else { 'ssh-ed25519 255 SHA256:jYsWizDft9Sm+hAuCTR9zWtpWeehF5XLunkPQPf/IBo' }
 $credentialFile = if ($env:UMUNSI_DEPLOY_CREDENTIAL_FILE) {
   $env:UMUNSI_DEPLOY_CREDENTIAL_FILE
 } else {
