@@ -1,8 +1,224 @@
 const { PrismaClient } = require('@prisma/client');
 const slugify = require('slugify');
+const https = require('https');
+const nodemailer = require('nodemailer');
 const { incrementDailyViews } = require('../utils/viewStats');
+const {
+  getHighestReachedMilestone,
+  getLastNotifiedMilestone,
+  markMilestoneAsSent,
+} = require('../utils/postViewMilestones');
 
 const prisma = new PrismaClient();
+
+const isMilestoneEmailEnabled = () => {
+  const flag = String(process.env.ENABLE_POST_VIEW_MILESTONE_EMAILS || 'true').toLowerCase();
+  return !['0', 'false', 'no', 'off'].includes(flag);
+};
+
+const getMailtrapApiHost = () => {
+  return process.env.MAILTRAP_API_HOST || 'send.api.mailtrap.io';
+};
+
+const sendViaMailtrapApi = ({ token, from, to, subject, text, html, category = 'Post View Milestone' }) => {
+  return new Promise((resolve, reject) => {
+    const payload = JSON.stringify({
+      from,
+      to: to.map((email) => ({ email })),
+      subject,
+      text,
+      html,
+      category,
+    });
+
+    const req = https.request(
+      {
+        hostname: getMailtrapApiHost(),
+        path: '/api/send',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (chunk) => {
+          body += chunk;
+        });
+        res.on('end', () => {
+          if (res.statusCode >= 200 && res.statusCode < 300) {
+            resolve(true);
+            return;
+          }
+          reject(new Error(`Mailtrap API error (${res.statusCode}): ${body}`));
+        });
+      }
+    );
+
+    req.on('error', reject);
+    req.write(payload);
+    req.end();
+  });
+};
+
+const getMailTransport = () => {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 587);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    return null;
+  }
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
+};
+
+const getMailSender = () => {
+  const mailtrapToken = process.env.MAILTRAP_API_TOKEN;
+  const senderEmail = process.env.MAILTRAP_SENDER_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
+  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi Notifications';
+
+  if (mailtrapToken && senderEmail) {
+    return {
+      provider: 'mailtrap',
+      send: ({ to, subject, text, html }) =>
+        sendViaMailtrapApi({
+          token: mailtrapToken,
+          from: { email: senderEmail, name: senderName },
+          to,
+          subject,
+          text,
+          html,
+        }),
+    };
+  }
+
+  const transport = getMailTransport();
+  const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  if (!transport || !fromAddress) return null;
+
+  return {
+    provider: 'smtp',
+    send: ({ to, subject, text, html }) =>
+      transport.sendMail({
+        from: fromAddress,
+        to: to.join(','),
+        subject,
+        text,
+        html,
+      }),
+  };
+};
+
+const getFrontendBaseUrl = () => {
+  const configured = process.env.FRONTEND_URL || process.env.CLIENT_URL || process.env.APP_URL;
+  return (configured || 'https://umunsi.com').replace(/\/$/, '');
+};
+
+const formatMilestoneDate = (date = new Date()) => {
+  return new Intl.DateTimeFormat('en-CA', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+};
+
+const notifyPostMilestoneIfNeeded = async (post, views) => {
+  try {
+    if (!post?.id || !post?.authorId || !Number.isFinite(views)) return;
+    if (!isMilestoneEmailEnabled()) return;
+
+    const reachedMilestone = getHighestReachedMilestone(views);
+    if (!reachedMilestone) return;
+
+    const lastNotified = getLastNotifiedMilestone(post.id);
+    if (reachedMilestone <= lastNotified) return;
+
+    const mailSender = getMailSender();
+    if (!mailSender) return;
+
+    const [author, admins] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: post.authorId },
+        select: {
+          email: true,
+          firstName: true,
+          lastName: true,
+          username: true,
+          isActive: true,
+        },
+      }),
+      prisma.user.findMany({
+        where: {
+          role: 'ADMIN',
+          isActive: true,
+        },
+        select: {
+          email: true,
+        },
+      }),
+    ]);
+
+    const recipients = new Set();
+    if (author?.isActive && author.email) recipients.add(author.email);
+    for (const admin of admins) {
+      if (admin.email) recipients.add(admin.email);
+    }
+
+    if (recipients.size === 0) return;
+
+    const articlePath = post.slug ? `/post/${post.slug}` : `/article/${post.id}`;
+    const articleUrl = `${getFrontendBaseUrl()}${articlePath}`;
+    const authorName = [author?.firstName, author?.lastName].filter(Boolean).join(' ') || author?.username || 'Author';
+    const milestoneDate = formatMilestoneDate(new Date());
+    const supportEmail = process.env.MILESTONE_SUPPORT_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER || 'info@umunsi.com';
+    const platformName = process.env.MILESTONE_PLATFORM_NAME || 'Umunsi Platform';
+    const subject = `article - ${post.title} achieved ${views.toLocaleString()} views on ${milestoneDate}!`;
+    const text = [
+      platformName,
+      '',
+      `Congratulations, you have achieved ${views.toLocaleString()} views on the article ${post.title}.`,
+      `Milestone reached: ${reachedMilestone.toLocaleString()} views.`,
+      `Click to check it out: ${articleUrl}`,
+      '',
+      `For more information, contact ${supportEmail}`,
+      'Umunsi Ltd',
+    ].join('\n');
+    const html = `
+      <div style="font-family: Arial, sans-serif; background-color: #f9fafb; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 0;">
+        <div style="background-color: #ffffff; padding: 40px 20px; text-align: center;">
+          <p style="margin: 0 0 20px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">${platformName}</p>
+          <h1 style="margin: 0 0 30px; font-size: 28px; font-weight: 700; color: #1f2937;">Congratulations</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #4b5563;">you have achieved <strong style="color: #f59e0b;">${views.toLocaleString()} views</strong> increase to the article <strong style="color: #1f2937;">${post.title}</strong>. Click to check it out</p>
+          <a href="${articleUrl}" style="display: inline-block; background-color: #1e40af; color: #ffffff; text-decoration: none; font-weight: 700; padding: 12px 28px; border-radius: 4px; font-size: 15px; margin: 30px 0;">Check out</a>
+        </div>
+        <div style="background-color: #1e40af; color: #ffffff; padding: 30px 20px; text-align: center;">
+          <p style="margin: 0; font-size: 14px;">For more information, contact <a href="mailto:${supportEmail}" style="color: #ffffff; text-decoration: underline;">${supportEmail}</a></p>
+          <p style="margin: 8px 0 0; font-size: 14px; font-weight: 600;">Umunsi Ltd</p>
+        </div>
+      </div>
+    `;
+
+    await mailSender.send({
+      to: Array.from(recipients),
+      subject,
+      text,
+      html,
+    });
+
+    markMilestoneAsSent(post.id, reachedMilestone);
+  } catch (error) {
+    console.error('Post milestone email notification failed:', error?.message || error);
+  }
+};
 
 const isAdminRequest = (req) => req.user && req.user.role === 'ADMIN';
 
@@ -318,17 +534,21 @@ const getPost = async (req, res) => {
     }
 
     // Increment view count
-    await prisma.post.update({
+    const updatedView = await prisma.post.update({
       where: { id: post.id },
-      data: { viewCount: { increment: 1 } }
+      data: { viewCount: { increment: 1 } },
+      select: { viewCount: true },
     });
 
     // Track daily reads for admin analytics.
     incrementDailyViews(new Date(), 1);
 
+    await notifyPostMilestoneIfNeeded(post, updatedView.viewCount);
+
     // Convert tags from string to array
     const postWithTagsArray = {
       ...withFeaturedImageFallback(post),
+      viewCount: updatedView.viewCount,
       tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
     };
 

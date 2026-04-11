@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
-const { authenticateToken, requireAuthor } = require('../middleware/auth');
+const { authenticateToken, optionalAuth, requireAuthor } = require('../middleware/auth');
 const newsController = require('../controllers/newsController');
 
 // Custom middleware to handle multipart requests
@@ -125,12 +125,12 @@ const handleValidationErrors = (req, res, next) => {
 };
 
 // Public routes
-router.get('/', newsController.getAllNews);
-router.get('/featured', newsController.getFeaturedNews);
-router.get('/breaking', newsController.getBreakingNews);
-router.get('/trending', newsController.getTrendingNews);
-router.get('/author/:authorId', newsController.getNewsByAuthor);
-router.get('/:id', newsController.getNewsById);
+router.get('/', optionalAuth, newsController.getAllNews);
+router.get('/featured', optionalAuth, newsController.getFeaturedNews);
+router.get('/breaking', optionalAuth, newsController.getBreakingNews);
+router.get('/trending', optionalAuth, newsController.getTrendingNews);
+router.get('/author/:authorId', optionalAuth, newsController.getNewsByAuthor);
+router.get('/:id', optionalAuth, newsController.getNewsById);
 
 // Protected routes (requires authentication)
 router.post('/', 

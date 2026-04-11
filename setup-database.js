@@ -8,7 +8,7 @@ const prisma = new PrismaClient();
 
 // Database configuration template
 const envTemplate = `# Database Configuration
-DATABASE_URL="postgresql://username:password@localhost:5432/umunsi_db"
+DATABASE_URL="postgresql://umunsi_com_user:password@localhost:5432/umunsi_db"
 
 # JWT Configuration
 JWT_SECRET="your-super-secret-jwt-key-change-this-in-production"

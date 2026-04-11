@@ -62,6 +62,16 @@ SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 
+# OR use Mailtrap API token (preferred for Mailtrap)
+MAILTRAP_API_TOKEN=your-mailtrap-api-token
+MAILTRAP_API_HOST=send.api.mailtrap.io
+MAILTRAP_SENDER_EMAIL=hello@demomailtrap.co
+MAILTRAP_SENDER_NAME=Umunsi Notifications
+
+# Milestone emails for post views
+ENABLE_POST_VIEW_MILESTONE_EMAILS=true
+POST_VIEW_MILESTONES=100,500,1000,2000,5000,10000
+
 # File Upload
 UPLOAD_PATH=./uploads
 MAX_FILE_SIZE=5242880

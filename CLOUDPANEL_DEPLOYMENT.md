@@ -67,12 +67,12 @@ sudo -u postgres psql
 Inside PostgreSQL CLI:
 ```sql
 CREATE DATABASE umunsi_db;
-CREATE USER umunsi_user WITH PASSWORD 'strong_password_here';
-ALTER ROLE umunsi_user SET client_encoding TO 'utf8';
-ALTER ROLE umunsi_user SET default_transaction_isolation TO 'read committed';
-ALTER ROLE umunsi_user SET default_transaction_deferrable TO on;
-ALTER ROLE umunsi_user SET timezone TO 'UTC';
-GRANT ALL PRIVILEGES ON DATABASE umunsi_db TO umunsi_user;
+CREATE USER umunsi_com_user WITH PASSWORD 'strong_password_here';
+ALTER ROLE umunsi_com_user SET client_encoding TO 'utf8';
+ALTER ROLE umunsi_com_user SET default_transaction_isolation TO 'read committed';
+ALTER ROLE umunsi_com_user SET default_transaction_deferrable TO on;
+ALTER ROLE umunsi_com_user SET timezone TO 'UTC';
+GRANT ALL PRIVILEGES ON DATABASE umunsi_db TO umunsi_com_user;
 \q
 ```
 
@@ -93,7 +93,7 @@ PORT=3000
 NODE_ENV=production
 
 # Database
-DATABASE_URL="postgresql://umunsi_user:strong_password_here@localhost:5432/umunsi_db?schema=umunsi"
+DATABASE_URL="postgresql://umunsi_com_user:strong_password_here@localhost:5432/umunsi_db?schema=umunsi"
 
 # JWT Secret (change this to a strong random string)
 JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-12345
@@ -257,7 +257,7 @@ lsof -i :3000
 
 ### Check database connection:
 ```bash
-psql -U umunsi_user -d umunsi_db -c "SELECT 1;"
+psql -U umunsi_com_user -d umunsi_db -c "SELECT 1;"
 ```
 
 ---
@@ -298,12 +298,12 @@ pm2 restart umunsi-backend
 
 ### Backup database:
 ```bash
-pg_dump -U umunsi_user umunsi_db > umunsi_db_backup.sql
+pg_dump -U umunsi_com_user umunsi_db > umunsi_db_backup.sql
 ```
 
 ### Restore database:
 ```bash
-psql -U umunsi_user umunsi_db < umunsi_db_backup.sql
+psql -U umunsi_com_user umunsi_db < umunsi_db_backup.sql
 ```
 
 ---

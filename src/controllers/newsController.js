@@ -4,6 +4,14 @@ const path = require('path');
 
 const prisma = new PrismaClient();
 
+const isAdminRequest = (req) => req.user && req.user.role === 'ADMIN';
+
+const sanitizeNewsForRole = (news, isAdmin) => {
+  if (isAdmin || !news) return news;
+  const { viewCount, ...rest } = news;
+  return rest;
+};
+
 // Helper function to generate slug
 const generateSlug = (title) => {
   return title
@@ -222,9 +230,11 @@ class NewsController {
       const hasNextPage = page < totalPages;
       const hasPrevPage = page > 1;
 
+      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+
       res.json({
         success: true,
-        news,
+        news: safeNews,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
@@ -286,14 +296,16 @@ class NewsController {
       }
 
       // Increment view count
-      await prisma.news.update({
+      const updatedNews = await prisma.news.update({
         where: { id: news.id },
         data: { viewCount: { increment: 1 } }
       });
 
+      const safeNews = sanitizeNewsForRole(updatedNews, isAdminRequest(req));
+
       res.json({
         success: true,
-        news
+        news: safeNews
       });
 
     } catch (error) {
@@ -557,9 +569,11 @@ class NewsController {
         take: 10
       });
 
+      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+
       res.json({
         success: true,
-        news
+        news: safeNews
       });
 
     } catch (error) {
@@ -603,9 +617,11 @@ class NewsController {
         take: 5
       });
 
+      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+
       res.json({
         success: true,
-        news
+        news: safeNews
       });
 
     } catch (error) {
@@ -650,9 +666,11 @@ class NewsController {
         take: 10
       });
 
+      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+
       res.json({
         success: true,
-        news
+        news: safeNews
       });
 
     } catch (error) {
@@ -712,10 +730,11 @@ class NewsController {
       ]);
 
       const totalPages = Math.ceil(total / take);
+      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
 
       res.json({
         success: true,
-        news,
+        news: safeNews,
         pagination: {
           currentPage: parseInt(page),
           totalPages,
