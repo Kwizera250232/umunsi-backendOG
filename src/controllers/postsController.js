@@ -20,47 +20,55 @@ const getMailtrapApiHost = () => {
   return process.env.MAILTRAP_API_HOST || 'send.api.mailtrap.io';
 };
 
-const sendViaMailtrapApi = ({ token, from, to, subject, text, html, category = 'Post View Milestone' }) => {
-  return new Promise((resolve, reject) => {
-    const payload = JSON.stringify({
-      from,
-      to: to.map((email) => ({ email })),
-      subject,
-      text,
-      html,
-      category,
+const sendViaMailtrapApi = async ({ token, from, to, subject, text, html, category = 'Post View Milestone' }) => {
+  const payload = JSON.stringify({
+    from,
+    to: to.map((email) => ({ email })),
+    subject,
+    text,
+    html,
+    category,
+  });
+
+  const trySend = (headers) =>
+    new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: getMailtrapApiHost(),
+          path: '/api/send',
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload),
+          },
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => {
+            body += chunk;
+          });
+          res.on('end', () => {
+            resolve({ statusCode: res.statusCode, body });
+          });
+        }
+      );
+
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
     });
 
-    const req = https.request(
-      {
-        hostname: getMailtrapApiHost(),
-        path: '/api/send',
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(payload),
-        },
-      },
-      (res) => {
-        let body = '';
-        res.on('data', (chunk) => {
-          body += chunk;
-        });
-        res.on('end', () => {
-          if (res.statusCode >= 200 && res.statusCode < 300) {
-            resolve(true);
-            return;
-          }
-          reject(new Error(`Mailtrap API error (${res.statusCode}): ${body}`));
-        });
-      }
-    );
+  const bearerResult = await trySend({ Authorization: `Bearer ${token}` });
+  if (bearerResult.statusCode >= 200 && bearerResult.statusCode < 300) return true;
 
-    req.on('error', reject);
-    req.write(payload);
-    req.end();
-  });
+  if (bearerResult.statusCode === 401) {
+    const apiTokenResult = await trySend({ 'Api-Token': token });
+    if (apiTokenResult.statusCode >= 200 && apiTokenResult.statusCode < 300) return true;
+    throw new Error(`Mailtrap API error (${apiTokenResult.statusCode}): ${apiTokenResult.body}`);
+  }
+
+  throw new Error(`Mailtrap API error (${bearerResult.statusCode}): ${bearerResult.body}`);
 };
 
 const getMailTransport = () => {
@@ -81,26 +89,41 @@ const getMailTransport = () => {
   });
 };
 
-const getMailSender = () => {
+const isEnabledFlag = (value, defaultValue = true) => {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  const normalized = String(value).trim().toLowerCase();
+  return !['0', 'false', 'no', 'off'].includes(normalized);
+};
+
+const parseEmailList = (value) => {
+  if (!value) return [];
+  return String(value)
+    .split(',')
+    .map((item) => item.trim().toLowerCase())
+    .filter((item) => item.length > 0 && item.includes('@'));
+};
+
+const buildMailtrapSender = () => {
   const mailtrapToken = process.env.MAILTRAP_API_TOKEN;
   const senderEmail = process.env.MAILTRAP_SENDER_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
   const senderName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi Notifications';
+  if (!mailtrapToken || !senderEmail) return null;
 
-  if (mailtrapToken && senderEmail) {
-    return {
-      provider: 'mailtrap',
-      send: ({ to, subject, text, html }) =>
-        sendViaMailtrapApi({
-          token: mailtrapToken,
-          from: { email: senderEmail, name: senderName },
-          to,
-          subject,
-          text,
-          html,
-        }),
-    };
-  }
+  return {
+    provider: 'mailtrap',
+    send: ({ to, subject, text, html }) =>
+      sendViaMailtrapApi({
+        token: mailtrapToken,
+        from: { email: senderEmail, name: senderName },
+        to,
+        subject,
+        text,
+        html,
+      }),
+  };
+};
 
+const buildSmtpSender = () => {
   const transport = getMailTransport();
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   if (!transport || !fromAddress) return null;
@@ -116,6 +139,47 @@ const getMailSender = () => {
         html,
       }),
   };
+};
+
+const getMailSender = () => {
+  const preference = String(process.env.MILESTONE_MAIL_PROVIDER || 'auto').trim().toLowerCase();
+
+  const withFallback = (primary, secondary) => {
+    if (!primary) return secondary || null;
+    if (!secondary) return primary;
+
+    return {
+      provider: `${primary.provider}->${secondary.provider}`,
+      send: async (payload) => {
+        try {
+          return await primary.send(payload);
+        } catch (primaryError) {
+          console.warn(
+            `Milestone email primary provider failed (${primary.provider}), retrying with ${secondary.provider}:`,
+            primaryError?.message || primaryError
+          );
+          return secondary.send(payload);
+        }
+      },
+    };
+  };
+
+  if (preference === 'smtp') {
+    return withFallback(buildSmtpSender(), buildMailtrapSender());
+  }
+
+  if (preference === 'mailtrap' || preference === 'api') {
+    return withFallback(buildMailtrapSender(), buildSmtpSender());
+  }
+
+  return withFallback(buildMailtrapSender(), buildSmtpSender());
+};
+
+const getMilestoneRecipientMode = () => {
+  const mode = String(process.env.MILESTONE_RECIPIENT_MODE || 'author_admin').trim().toLowerCase();
+  if (['all', 'all_users', 'users'].includes(mode)) return 'all_users';
+  if (['selected', 'custom', 'specific'].includes(mode)) return 'selected';
+  return 'author_admin';
 };
 
 const getFrontendBaseUrl = () => {
@@ -145,7 +209,11 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
     const mailSender = getMailSender();
     if (!mailSender) return;
 
-    const [author, admins] = await Promise.all([
+    const recipientMode = getMilestoneRecipientMode();
+    const includeAuthorAndAdmins =
+      recipientMode === 'author_admin' || isEnabledFlag(process.env.MILESTONE_INCLUDE_AUTHOR_AND_ADMINS, true);
+
+    const [author, admins, allUsers] = await Promise.all([
       prisma.user.findUnique({
         where: { id: post.authorId },
         select: {
@@ -156,21 +224,50 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
           isActive: true,
         },
       }),
-      prisma.user.findMany({
-        where: {
-          role: 'ADMIN',
-          isActive: true,
-        },
-        select: {
-          email: true,
-        },
-      }),
+      includeAuthorAndAdmins
+        ? prisma.user.findMany({
+            where: {
+              role: 'ADMIN',
+              isActive: true,
+            },
+            select: {
+              email: true,
+            },
+          })
+        : Promise.resolve([]),
+      recipientMode === 'all_users'
+        ? prisma.user.findMany({
+            where: {
+              isActive: true,
+              email: {
+                not: null,
+              },
+            },
+            select: {
+              email: true,
+            },
+          })
+        : Promise.resolve([]),
     ]);
 
     const recipients = new Set();
-    if (author?.isActive && author.email) recipients.add(author.email);
-    for (const admin of admins) {
-      if (admin.email) recipients.add(admin.email);
+
+    if (recipientMode === 'selected') {
+      const selectedRecipients = parseEmailList(process.env.MILESTONE_SELECTED_RECIPIENTS);
+      for (const email of selectedRecipients) recipients.add(email);
+    }
+
+    if (recipientMode === 'all_users') {
+      for (const user of allUsers) {
+        if (user?.email) recipients.add(String(user.email).trim().toLowerCase());
+      }
+    }
+
+    if (includeAuthorAndAdmins) {
+      if (author?.isActive && author.email) recipients.add(String(author.email).trim().toLowerCase());
+      for (const admin of admins) {
+        if (admin.email) recipients.add(String(admin.email).trim().toLowerCase());
+      }
     }
 
     if (recipients.size === 0) return;
