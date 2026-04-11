@@ -1,5 +1,6 @@
 const express = require('express');
 const { body, query, validationResult } = require('express-validator');
+const https = require('https');
 const nodemailer = require('nodemailer');
 const prisma = require('../database/prisma');
 const { authenticateToken, optionalAuth, requireEditor } = require('../middleware/auth');
@@ -11,11 +12,61 @@ const STATUSES = ['PENDING', 'APPROVED', 'REJECTED'];
 
 const normalizePhone = (value = '') => String(value).replace(/\s+/g, '').replace(/^0/, '250');
 
+const getMailtrapApiHost = () => process.env.MAILTRAP_API_HOST || 'send.api.mailtrap.io';
+
+const sendViaMailtrapApi = async ({ token, from, to, subject, text }) => {
+  const payload = JSON.stringify({
+    from,
+    to: to.map((email) => ({ email })),
+    subject,
+    text,
+    category: 'User Broadcast'
+  });
+
+  const trySend = (headers) =>
+    new Promise((resolve, reject) => {
+      const req = https.request(
+        {
+          hostname: getMailtrapApiHost(),
+          path: '/api/send',
+          method: 'POST',
+          headers: {
+            ...headers,
+            'Content-Type': 'application/json',
+            'Content-Length': Buffer.byteLength(payload)
+          }
+        },
+        (res) => {
+          let body = '';
+          res.on('data', (chunk) => {
+            body += chunk;
+          });
+          res.on('end', () => resolve({ statusCode: res.statusCode, body }));
+        }
+      );
+
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+
+  const bearerResult = await trySend({ Authorization: `Bearer ${token}` });
+  if (bearerResult.statusCode >= 200 && bearerResult.statusCode < 300) return true;
+
+  if (bearerResult.statusCode === 401) {
+    const apiTokenResult = await trySend({ 'Api-Token': token });
+    if (apiTokenResult.statusCode >= 200 && apiTokenResult.statusCode < 300) return true;
+    throw new Error(`Mailtrap API error (${apiTokenResult.statusCode}): ${apiTokenResult.body}`);
+  }
+
+  throw new Error(`Mailtrap API error (${bearerResult.statusCode}): ${bearerResult.body}`);
+};
+
 const getMailTransport = () => {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
   const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD;
+  const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
 
   if (!host || !user || !pass) {
     return null;
@@ -27,6 +78,57 @@ const getMailTransport = () => {
     secure: port === 465,
     auth: { user, pass }
   });
+};
+
+const getBroadcastMailSender = () => {
+  const smtpTransport = getMailTransport();
+  const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const token = process.env.MAILTRAP_API_TOKEN;
+  const apiFrom = process.env.MAILTRAP_SENDER_EMAIL || smtpFrom;
+  const apiName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi Notifications';
+
+  const smtpSender = smtpTransport && smtpFrom
+    ? {
+        provider: 'smtp',
+        send: ({ to, subject, text }) =>
+          smtpTransport.sendMail({
+            from: smtpFrom,
+            to: to.join(','),
+            subject,
+            text
+          })
+      }
+    : null;
+
+  const apiSender = token && apiFrom
+    ? {
+        provider: 'mailtrap-api',
+        send: ({ to, subject, text }) =>
+          sendViaMailtrapApi({
+            token,
+            from: { email: apiFrom, name: apiName },
+            to,
+            subject,
+            text
+          })
+      }
+    : null;
+
+  if (!smtpSender && !apiSender) return null;
+  if (!smtpSender) return apiSender;
+  if (!apiSender) return smtpSender;
+
+  return {
+    provider: 'smtp->mailtrap-api',
+    send: async (payload) => {
+      try {
+        return await smtpSender.send(payload);
+      } catch (error) {
+        console.warn('Broadcast SMTP failed; retrying with Mailtrap API:', error?.message || error);
+        return apiSender.send(payload);
+      }
+    }
+  };
 };
 
 const getTwilioConfig = () => {
@@ -543,25 +645,44 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
     });
 
     let emailsSent = 0;
+    let emailsFailed = 0;
+    let emailFailedTargets = [];
     let emailError = null;
 
     if (sendEmail) {
-      const transporter = getMailTransport();
-      if (transporter) {
-        const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+      const mailSender = getBroadcastMailSender();
+      if (mailSender) {
         const mailSubject = subject || 'Ubutumwa buvuye kuri Umunsi';
         const emailTargets = users.filter((u) => Boolean(u.email));
-        await Promise.allSettled(
-          emailTargets.map((target) => transporter.sendMail({
-            from: fromAddress,
-            to: target.email,
-            subject: mailSubject,
-            text: message
-          }))
+        const emailResults = await Promise.allSettled(
+          emailTargets.map((target) =>
+            mailSender.send({
+              to: [target.email],
+              subject: mailSubject,
+              text: message
+            })
+          )
         );
-        emailsSent = emailTargets.length;
+
+        emailResults.forEach((result, index) => {
+          if (result.status === 'fulfilled') {
+            emailsSent += 1;
+            return;
+          }
+
+          emailsFailed += 1;
+          emailFailedTargets.push(emailTargets[index].email);
+        });
+
+        if (emailsFailed > 0) {
+          emailError = `${emailsFailed}/${emailTargets.length} email(s) ntabwo zageze kuri provider.`;
+          console.warn('Broadcast email failures:', {
+            failedCount: emailsFailed,
+            failedTargets: emailFailedTargets
+          });
+        }
       } else {
-        emailError = 'SMTP ntabwo irashyirwaho kuri server.';
+        emailError = 'Email service ntabwo irashyirwaho kuri server (SMTP cyangwa Mailtrap API).';
       }
     }
 
@@ -590,6 +711,8 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
         broadcastId: created.id,
         totalTargets: users.length,
         emailsSent,
+        emailsFailed,
+        emailFailedTargets,
         emailError,
         smsSent,
         smsError,
