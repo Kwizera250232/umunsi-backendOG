@@ -516,7 +516,7 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
       return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
     }
 
-    const { message, userIds = [], sendEmail = true, sendPhone = true, sendSms = true, subject } = req.body;
+    const { message, userIds = [], sendEmail = true, sendPhone = true, sendSms = false, subject } = req.body;
 
     const where = {
       isActive: true,
@@ -576,29 +576,11 @@ router.post('/broadcasts/dispatch', authenticateToken, requireEditor, [
           }))
       : [];
 
+    // Legacy behavior requested: no direct SMS provider required; use phone/WhatsApp targets.
     let smsSent = 0;
     let smsError = null;
-
     if (sendSms) {
-      const hasTwilio = Boolean(getTwilioConfig());
-      const hasAfricasTalking = Boolean(getAfricasTalkingConfig());
-
-      if (!hasTwilio && !hasAfricasTalking) {
-        smsError = 'SMS provider ntabwo irashyirwaho kuri server (Twilio cyangwa Africa\'s Talking).';
-      } else {
-        const smsTargets = users.filter((u) => Boolean(u.phone));
-        const smsResults = await Promise.allSettled(
-          smsTargets.map((u) => (hasTwilio ? sendSmsWithTwilio(u.phone, message) : sendSmsWithAfricasTalking(u.phone, message)))
-        );
-        smsSent = smsResults.filter((r) => r.status === 'fulfilled' && r.value?.ok).length;
-
-        const failed = smsResults.find((r) => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value?.ok));
-        if (failed && !smsError) {
-          smsError = hasTwilio
-            ? 'Hari SMS zitoherejwe zose. Reba Twilio config cyangwa numero.'
-            : 'Hari SMS zitoherejwe zose. Reba Africa\'s Talking config cyangwa numero.';
-        }
-      }
+      smsSent = phoneTargets.length;
     }
 
     return res.json({
