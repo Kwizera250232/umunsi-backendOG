@@ -15,7 +15,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $serverHost = '93.127.186.217'
-$serverHostKey = 'ssh-ed25519 255 SHA256:jYsWizDft9Sm+hAuCTR9zWtpWeehF5XLunkPQPf/IBo'
+$serverHostKey = 'ssh-ed25519 255 SHA256:pluXiqOiYsEH1N2eaOqo+v1qGAN5ysG06geZCbqX9oc'
 $credentialFile = Join-Path $env:APPDATA 'Umunsi\deploy-credential.xml'
 
 if (-not (Test-Path $credentialFile)) {

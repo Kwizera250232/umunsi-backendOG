@@ -86,7 +86,7 @@ model ClassifiedBroadcast {
 model SupportPayment {
   id               String   @id @default(cuid())
   userId           String
-  provider         String   @default("FLUTTERWAVE")
+  provider         String   @default("KPAY")
   purpose          String   @default("PREMIUM_SUPPORT")
   amount           Float
   currency         String   @default("RWF")

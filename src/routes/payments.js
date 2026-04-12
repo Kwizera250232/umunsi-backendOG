@@ -6,16 +6,9 @@ const { authenticateToken } = require('../middleware/auth');
 const router = express.Router();
 const prisma = new PrismaClient();
 
-const FLW_BASE_URL = process.env.FLW_BASE_URL || 'https://api.flutterwave.com/v3';
 const PREMIUM_SUPPORT_AMOUNT_RWF = Number(process.env.PREMIUM_SUPPORT_AMOUNT_RWF || 500);
 const PREMIUM_DURATION_DAYS = Number(process.env.PREMIUM_DURATION_DAYS || 30);
-
-const isFlutterwaveConfigured = () => Boolean((process.env.FLW_SECRET_KEY || '').trim());
-
-const toDate = (value) => {
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? new Date() : d;
-};
+const KPAY_DEFAULT_COUNTRY_CODE = String(process.env.KPAY_DEFAULT_COUNTRY_CODE || '250');
 
 const buildTxRef = (userId) => {
   const suffix = userId ? userId.slice(-6) : 'guest';
@@ -28,28 +21,71 @@ const getFrontendBaseUrl = () => {
   return process.env.NODE_ENV === 'production' ? 'https://umunsi.com' : 'http://localhost:5173';
 };
 
-const flutterwaveRequest = async (endpoint, options = {}) => {
-  const secretKey = process.env.FLW_SECRET_KEY;
-  if (!secretKey) {
-    throw new Error('Missing FLW_SECRET_KEY in environment');
+const getBackendBaseUrl = (req) => {
+  const configured = (process.env.BACKEND_URL || process.env.APP_URL || '').trim();
+  if (configured) return configured.replace(/\/$/, '');
+  if (req && req.protocol && req.get) {
+    return `${req.protocol}://${req.get('host')}`;
+  }
+  return process.env.NODE_ENV === 'production' ? 'https://umunsi.com' : 'http://localhost:3000';
+};
+
+const isKpayConfigured = () => {
+  const username = (process.env.KPAY_USERNAME || '').trim();
+  const password = (process.env.KPAY_PASSWORD || '').trim();
+  const retailerId = (process.env.KPAY_RETAILER_ID || '').trim();
+  return Boolean(username && password && retailerId);
+};
+
+const normalizeMsisdn = (value) => {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+
+  let digits = raw.replace(/\D/g, '');
+  if (digits.startsWith('0')) {
+    digits = `${KPAY_DEFAULT_COUNTRY_CODE}${digits.slice(1)}`;
   }
 
-  const response = await fetch(`${FLW_BASE_URL}${endpoint}`, {
-    ...options,
+  return digits;
+};
+
+const isKpaySuccessStatus = (value) => String(value || '').toUpperCase() === '01';
+const isKpayPendingStatus = (value) => String(value || '').toUpperCase() === '03';
+
+const safeParseJson = (value) => {
+  if (!value) return {};
+  try {
+    return JSON.parse(value);
+  } catch (error) {
+    return {};
+  }
+};
+
+const kpayRequest = async (payload) => {
+  const username = (process.env.KPAY_USERNAME || '').trim();
+  const password = (process.env.KPAY_PASSWORD || '').trim();
+  const baseUrl = (process.env.KPAY_BASE_URL || 'https://pay.esicia.com').trim().replace(/\/$/, '');
+  const apiPath = (process.env.KPAY_API_PATH || '/').trim();
+  const requestUrl = `${baseUrl}${apiPath.startsWith('/') ? apiPath : `/${apiPath}`}`;
+
+  const auth = Buffer.from(`${username}:${password}`).toString('base64');
+
+  const response = await fetch(requestUrl, {
+    method: 'POST',
     headers: {
-      Authorization: `Bearer ${secretKey}`,
-      'Content-Type': 'application/json',
-      ...(options.headers || {})
-    }
+      Authorization: `Basic ${auth}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload)
   });
 
-  const payload = await response.json().catch(() => ({}));
+  const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    const reason = payload?.message || payload?.error || 'Flutterwave request failed';
+    const reason = data?.statusdesc || data?.message || data?.error || 'KPay request failed';
     throw new Error(reason);
   }
 
-  return payload;
+  return data;
 };
 
 const applyPremiumActivation = async (userId, paidAt) => {
@@ -81,115 +117,113 @@ const applyPremiumActivation = async (userId, paidAt) => {
   return updated;
 };
 
-const verifyAndSyncByTxRef = async (payment, knownTransactionId) => {
-  if (payment.status === 'SUCCESS') {
-    const premium = await prisma.user.findUnique({
-      where: { id: payment.userId },
-      select: {
-        id: true,
-        isPremium: true,
-        premiumSince: true,
-        premiumUntil: true
-      }
-    });
+const syncKpayPaymentByStatus = async (payment, kpayPayload = {}) => {
+  const statusId = String(kpayPayload?.statusid || '').trim();
+  const statusDesc = String(kpayPayload?.statusdesc || '').trim();
+  const tid = String(kpayPayload?.tid || '').trim();
+  const momTransactionId = String(kpayPayload?.momtransactionid || '').trim();
+  const reply = String(kpayPayload?.reply || '').trim();
 
-    return {
-      payment,
-      premium,
-      verification: null
-    };
-  }
-
-  const verification = await flutterwaveRequest(`/transactions/verify_by_reference?tx_ref=${encodeURIComponent(payment.txRef)}`, {
-    method: 'GET'
-  });
-
-  const transactionData = verification?.data || {};
-  const providerStatus = String(transactionData?.status || '').toUpperCase();
-  const paidAmount = Number(transactionData?.amount || 0);
-  const currency = String(transactionData?.currency || '').toUpperCase();
-  const isSuccessful = providerStatus === 'SUCCESSFUL';
-  const isAmountValid = paidAmount >= Number(payment.amount || 0);
-  const isCurrencyValid = currency === String(payment.currency || 'RWF').toUpperCase();
-
-  if (isSuccessful && isAmountValid && isCurrencyValid) {
-    const paidAt = transactionData?.created_at ? toDate(transactionData.created_at) : new Date();
-
+  if (isKpaySuccessStatus(statusId)) {
+    const paidAt = new Date();
     const updatedPayment = await prisma.supportPayment.update({
       where: { id: payment.id },
       data: {
         status: 'SUCCESS',
-        providerStatus,
-        flwTransactionId: String(knownTransactionId || transactionData?.id || ''),
-        customerEmail: transactionData?.customer?.email || payment.customerEmail,
+        providerStatus: statusId,
+        flwTransactionId: tid || payment.flwTransactionId,
         paidAt,
         errorMessage: null,
         metadata: JSON.stringify({
-          paymentType: transactionData?.payment_type || null,
-          processorResponse: transactionData?.processor_response || null,
-          appFee: transactionData?.app_fee || null,
-          flwRef: transactionData?.flw_ref || null
+          ...safeParseJson(payment.metadata),
+          kpayReply: reply || null,
+          statusDesc: statusDesc || null,
+          momtransactionid: momTransactionId || null,
+          payaccount: kpayPayload?.payaccount || null
         })
       }
     });
 
     const premium = await applyPremiumActivation(payment.userId, paidAt);
-
-    return {
-      payment: updatedPayment,
-      premium,
-      verification
-    };
+    return { payment: updatedPayment, premium, isFinal: true };
   }
 
-  const failureReason = isSuccessful
-    ? `Amount/currency mismatch. amount=${paidAmount}, currency=${currency}`
-    : verification?.message || 'Payment was not successful';
+  if (isKpayPendingStatus(statusId) || (!statusId && String(kpayPayload?.retcode || '') === '0')) {
+    const updatedPayment = await prisma.supportPayment.update({
+      where: { id: payment.id },
+      data: {
+        status: 'PENDING',
+        providerStatus: statusId || '03',
+        flwTransactionId: tid || payment.flwTransactionId,
+        metadata: JSON.stringify({
+          ...safeParseJson(payment.metadata),
+          kpayReply: reply || null,
+          statusDesc: statusDesc || null,
+          momtransactionid: momTransactionId || null,
+          payaccount: kpayPayload?.payaccount || null
+        })
+      }
+    });
+    return { payment: updatedPayment, premium: null, isFinal: false };
+  }
 
   const updatedPayment = await prisma.supportPayment.update({
     where: { id: payment.id },
     data: {
       status: 'FAILED',
-      providerStatus: providerStatus || 'FAILED',
-      flwTransactionId: String(knownTransactionId || transactionData?.id || ''),
-      errorMessage: failureReason
+      providerStatus: statusId || '02',
+      flwTransactionId: tid || payment.flwTransactionId,
+      errorMessage: statusDesc || 'KPay payment failed',
+      metadata: JSON.stringify({
+        ...safeParseJson(payment.metadata),
+        kpayReply: reply || null,
+        statusDesc: statusDesc || null,
+        momtransactionid: momTransactionId || null,
+        payaccount: kpayPayload?.payaccount || null
+      })
     }
   });
 
-  return {
-    payment: updatedPayment,
-    premium: null,
-    verification
-  };
+  return { payment: updatedPayment, premium: null, isFinal: true };
 };
 
-router.post('/flutterwave/initialize', authenticateToken, async (req, res) => {
+router.post('/kpay/initialize', authenticateToken, async (req, res) => {
   let paymentRecord = null;
   try {
-    if (!isFlutterwaveConfigured()) {
+    if (!isKpayConfigured()) {
       return res.status(503).json({
         success: false,
-        error: 'Flutterwave is not configured on this server yet.',
-        message: 'Set FLW_SECRET_KEY and restart backend.'
+        error: 'KPay is not configured on this server yet.',
+        message: 'Set KPAY_USERNAME, KPAY_PASSWORD and KPAY_RETAILER_ID then restart backend.'
       });
     }
 
     const amount = Number(req.body?.amount || PREMIUM_SUPPORT_AMOUNT_RWF);
+    const pmethod = String(req.body?.pmethod || 'momo').trim().toLowerCase();
+    const rawMsisdn = req.body?.msisdn;
+    const msisdn = normalizeMsisdn(rawMsisdn);
+
     if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ success: false, error: 'Invalid amount' });
+    }
+
+    if (!msisdn || msisdn.length < 10) {
       return res.status(400).json({
         success: false,
-        error: 'Invalid amount'
+        error: 'Invalid phone number',
+        message: 'Provide a valid mobile number. Example: 2507XXXXXXXX'
       });
     }
 
     const txRef = buildTxRef(req.user.id);
-    const redirectUrl = `${getFrontendBaseUrl()}/subscriber/account?payment=callback`;
     const fullName = [req.user.firstName, req.user.lastName].filter(Boolean).join(' ').trim() || req.user.username;
+    const frontendBaseUrl = getFrontendBaseUrl();
+    const backendBaseUrl = getBackendBaseUrl(req);
 
     paymentRecord = await prisma.supportPayment.create({
       data: {
         userId: req.user.id,
-        provider: 'FLUTTERWAVE',
+        provider: 'KPAY',
         purpose: 'PREMIUM_SUPPORT',
         amount,
         currency: 'RWF',
@@ -199,62 +233,65 @@ router.post('/flutterwave/initialize', authenticateToken, async (req, res) => {
       }
     });
 
-    const flutterwavePayload = {
-      tx_ref: txRef,
-      amount,
+    const kpayPayload = {
+      action: 'pay',
+      msisdn,
+      email: req.user.email,
+      details: `Dutere inkunga ya ${amount}/ ku kwezi usome inkuru za premium.`,
+      refid: txRef,
+      amount: Math.round(amount),
       currency: 'RWF',
-      redirect_url: redirectUrl,
-      customer: {
-        email: req.user.email,
-        name: fullName
-      },
-      customizations: {
-        title: 'Umunsi Premium Support',
-        description: `Shyigikira Umunsi Premium - ${amount} RWF`,
-        logo: `${getFrontendBaseUrl()}/images/logo.png`
-      },
-      meta: {
-        userId: req.user.id,
-        paymentId: paymentRecord.id,
-        purpose: 'PREMIUM_SUPPORT'
-      }
+      cname: fullName,
+      cnumber: req.user.id,
+      pmethod,
+      retailerid: (process.env.KPAY_RETAILER_ID || '').trim(),
+      returl: `${backendBaseUrl}/api/payments/kpay/webhook`,
+      redirecturl: `${frontendBaseUrl}/subscriber/account?payment=callback&provider=kpay&txRef=${encodeURIComponent(txRef)}`,
+      logourl: `${frontendBaseUrl}/images/logo.png`
     };
 
-    const response = await flutterwaveRequest('/payments', {
-      method: 'POST',
-      body: JSON.stringify(flutterwavePayload)
-    });
+    const response = await kpayRequest(kpayPayload);
 
-    const checkoutUrl = response?.data?.link;
-    if (!checkoutUrl) {
-      throw new Error('Flutterwave did not return a checkout link');
-    }
-
-    await prisma.supportPayment.update({
+    const updatedPayment = await prisma.supportPayment.update({
       where: { id: paymentRecord.id },
       data: {
-        checkoutUrl,
-        providerStatus: String(response?.status || 'PENDING').toUpperCase(),
+        checkoutUrl: response?.url || null,
+        providerStatus: String(response?.statusid || response?.reply || response?.retcode || 'PENDING'),
+        flwTransactionId: String(response?.tid || ''),
         metadata: JSON.stringify({
-          responseStatus: response?.status || null,
-          responseMessage: response?.message || null
+          kpayReply: response?.reply || null,
+          kpayRetcode: response?.retcode ?? null,
+          statusid: response?.statusid || null,
+          statusdesc: response?.statusdesc || null,
+          momtransactionid: response?.momtransactionid || null,
+          authkey: response?.authkey || null,
+          requestPmethod: pmethod,
+          msisdn
         })
       }
     });
 
+    let premium = null;
+    if (isKpaySuccessStatus(response?.statusid)) {
+      const syncResult = await syncKpayPaymentByStatus(updatedPayment, response);
+      premium = syncResult.premium;
+    }
+
     return res.json({
       success: true,
-      message: 'Checkout initialized successfully',
+      message: premium ? 'Payment successful and premium activated' : 'Payment initialized successfully',
       data: {
         paymentId: paymentRecord.id,
         txRef,
         amount,
         currency: 'RWF',
-        checkoutUrl
+        checkoutUrl: response?.url || null,
+        providerReply: response,
+        premium
       }
     });
   } catch (error) {
-    console.error('Flutterwave initialize error:', error);
+    console.error('KPay initialize error:', error);
 
     if (paymentRecord?.id) {
       await prisma.supportPayment.update({
@@ -268,20 +305,24 @@ router.post('/flutterwave/initialize', authenticateToken, async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      error: error.message || 'Failed to initialize payment',
-      message: error.message || 'Failed to initialize payment'
+      error: error.message || 'Failed to initialize KPay payment',
+      message: error.message || 'Failed to initialize KPay payment'
     });
   }
 });
 
-router.get('/flutterwave/verify/:txRef', authenticateToken, async (req, res) => {
+router.get('/kpay/verify/:txRef', authenticateToken, async (req, res) => {
   try {
+    if (!isKpayConfigured()) {
+      return res.status(503).json({
+        success: false,
+        error: 'KPay is not configured on this server yet.'
+      });
+    }
+
     const { txRef } = req.params;
     const payment = await prisma.supportPayment.findFirst({
-      where: {
-        txRef,
-        userId: req.user.id
-      }
+      where: { txRef, userId: req.user.id }
     });
 
     if (!payment) {
@@ -291,61 +332,72 @@ router.get('/flutterwave/verify/:txRef', authenticateToken, async (req, res) => 
       });
     }
 
-    const result = await verifyAndSyncByTxRef(payment);
+    const statusPayload = {
+      action: 'checkstatus',
+      refid: payment.txRef,
+      tid: payment.flwTransactionId || undefined
+    };
+
+    const providerReply = await kpayRequest(statusPayload);
+    const syncResult = await syncKpayPaymentByStatus(payment, providerReply);
 
     return res.json({
       success: true,
-      message: result.payment.status === 'SUCCESS' ? 'Payment verified and premium activated' : 'Payment not completed',
+      message: syncResult.payment.status === 'SUCCESS'
+        ? 'Payment verified and premium activated'
+        : syncResult.payment.status === 'PENDING'
+          ? 'Payment still pending'
+          : 'Payment failed',
       data: {
-        payment: result.payment,
-        premium: result.premium
+        payment: syncResult.payment,
+        premium: syncResult.premium,
+        providerReply
       }
     });
   } catch (error) {
-    console.error('Flutterwave verify error:', error);
+    console.error('KPay verify error:', error);
     return res.status(500).json({
       success: false,
-      error: 'Failed to verify payment',
+      error: 'Failed to verify KPay payment',
       message: error.message
     });
   }
 });
 
-router.post('/flutterwave/webhook', async (req, res) => {
+router.post('/kpay/webhook', async (req, res) => {
   try {
-    const configuredHash = process.env.FLW_WEBHOOK_SECRET;
-    const incomingHash = req.headers['verif-hash'];
+    const refid = String(req.body?.refid || '').trim();
+    const tid = String(req.body?.tid || '').trim();
 
-    if (configuredHash && incomingHash !== configuredHash) {
-      return res.status(401).json({
-        success: false,
-        error: 'Invalid webhook signature'
+    if (!refid && !tid) {
+      return res.status(200).json({
+        tid,
+        refid,
+        reply: 'OK'
       });
     }
 
-    const txRef = req.body?.data?.tx_ref;
-    const txId = req.body?.data?.id;
+    const payment = await prisma.supportPayment.findFirst({
+      where: refid
+        ? { txRef: refid }
+        : { flwTransactionId: tid }
+    });
 
-    if (!txRef) {
-      return res.status(200).json({ success: true, message: 'No tx_ref in webhook payload' });
+    if (payment) {
+      await syncKpayPaymentByStatus(payment, req.body);
     }
-
-    const payment = await prisma.supportPayment.findUnique({ where: { txRef } });
-    if (!payment) {
-      return res.status(200).json({ success: true, message: 'Payment record not found for webhook' });
-    }
-
-    await verifyAndSyncByTxRef(payment, txId);
 
     return res.status(200).json({
-      success: true,
-      message: 'Webhook processed'
+      tid,
+      refid,
+      reply: 'OK'
     });
   } catch (error) {
-    console.error('Flutterwave webhook error:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Webhook processing failed'
+    console.error('KPay webhook error:', error);
+    return res.status(200).json({
+      tid: String(req.body?.tid || '').trim(),
+      refid: String(req.body?.refid || '').trim(),
+      reply: 'OK'
     });
   }
 });

@@ -417,11 +417,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     controls.style.alignItems = 'center';
 
     // Add control buttons
+    const moveUp = createControlButton('↑', 'Move Up', () => moveImage(container, 'up'));
+    const moveDown = createControlButton('↓', 'Move Down', () => moveImage(container, 'down'));
     const alignLeft = createControlButton('⬅', 'Align Left', () => alignImage(image, 'left'));
     const alignCenter = createControlButton('⬆', 'Align Center', () => alignImage(image, 'center'));
     const alignRight = createControlButton('➡', 'Align Right', () => alignImage(image, 'right'));
     const deleteBtn = createControlButton('🗑', 'Delete Image', () => deleteImage(container));
 
+    controls.appendChild(moveUp);
+    controls.appendChild(moveDown);
     controls.appendChild(alignLeft);
     controls.appendChild(alignCenter);
     controls.appendChild(alignRight);
@@ -497,9 +501,140 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   };
 
+  const isEmptyPlaceholder = (element: Element | null) => {
+    if (!element || !(element instanceof HTMLElement)) return false;
+
+    if (element.classList.contains('image-text-block')) {
+      return element.querySelector('.resizable-image') === null && element.textContent?.trim() === '';
+    }
+
+    if (element.tagName === 'P') {
+      const html = element.innerHTML.replace(/\s+/g, '').toLowerCase();
+      return html === '' || html === '<br>' || html === '<br/>';
+    }
+
+    return false;
+  };
+
+  const isImageBlock = (element: Element | null) => {
+    if (!element || !(element instanceof HTMLElement)) return false;
+    if (element.classList.contains('image-text-block')) {
+      return element.querySelector('.resizable-image') !== null;
+    }
+
+    return (
+      element.classList.contains('image-container') ||
+      element.querySelector('.image-container, .resizable-image') !== null
+    );
+  };
+
+  const clearAdjacentPlaceholders = (target: HTMLElement) => {
+    const previous = target.previousElementSibling;
+    const next = target.nextElementSibling;
+
+    if (isEmptyPlaceholder(previous)) previous?.remove();
+    if (isEmptyPlaceholder(next)) next?.remove();
+  };
+
+  const getSiblingImageBlock = (target: HTMLElement, direction: 'up' | 'down') => {
+    let removedPlaceholder = false;
+    let sibling = direction === 'up' ? target.previousElementSibling : target.nextElementSibling;
+
+    while (sibling && isEmptyPlaceholder(sibling)) {
+      const toRemove = sibling;
+      sibling = direction === 'up' ? sibling.previousElementSibling : sibling.nextElementSibling;
+      toRemove.remove();
+      removedPlaceholder = true;
+    }
+
+    if (sibling && !isImageBlock(sibling)) {
+      return { sibling: null as HTMLElement | null, removedPlaceholder };
+    }
+
+    return { sibling: (sibling as HTMLElement | null), removedPlaceholder };
+  };
+
+  const moveImage = (container: HTMLElement, direction: 'up' | 'down') => {
+    const target = (container.closest('.image-text-block') as HTMLElement | null) || container;
+    const parent = target.parentElement;
+    if (!parent) return;
+
+    if (direction === 'up') {
+      const { sibling: previous, removedPlaceholder } = getSiblingImageBlock(target, 'up');
+      if (!previous) {
+        if (removedPlaceholder) handleContentChange();
+        return;
+      }
+      if (!previous) return;
+      parent.insertBefore(target, previous);
+    } else {
+      const { sibling: next, removedPlaceholder } = getSiblingImageBlock(target, 'down');
+      if (!next) {
+        if (removedPlaceholder) handleContentChange();
+        return;
+      }
+      if (!next) return;
+      parent.insertBefore(target, next.nextElementSibling);
+    }
+
+    clearAdjacentPlaceholders(target);
+    selectImage(container);
+    handleContentChange();
+  };
+
   const deleteImage = (container: HTMLElement) => {
     if (confirm('Are you sure you want to delete this image?')) {
-      container.remove();
+      const target = (container.closest('.image-text-block') as HTMLElement | null) || container;
+      const parent = target.parentElement;
+      const nextSibling = target.nextElementSibling as HTMLElement | null;
+      const previousSibling = target.previousElementSibling as HTMLElement | null;
+
+      target.remove();
+
+      let cursorParent = parent;
+
+      if (cursorParent) {
+        if (previousSibling && isEmptyPlaceholder(previousSibling)) {
+          previousSibling.remove();
+        }
+        if (nextSibling && isEmptyPlaceholder(nextSibling)) {
+          nextSibling.remove();
+        }
+
+        // Remove empty wrapper paragraph/div left behind by deleting nested image containers.
+        if (cursorParent !== editorRef.current && isEmptyPlaceholder(cursorParent)) {
+          const wrapperParent = cursorParent.parentElement as HTMLElement | null;
+          cursorParent.remove();
+          cursorParent = wrapperParent;
+        }
+      }
+
+      if (cursorParent) {
+
+        // Keep at least one editable block so typing/inserting can continue immediately.
+        if (!cursorParent.firstElementChild) {
+          const placeholderParagraph = document.createElement('p');
+          placeholderParagraph.innerHTML = '<br>';
+          cursorParent.appendChild(placeholderParagraph);
+        }
+
+        const targetElement =
+          (nextSibling && nextSibling.isConnected ? nextSibling : null) ||
+          (previousSibling && previousSibling.isConnected ? previousSibling : null) ||
+          (cursorParent.lastElementChild as HTMLElement | null);
+        if (targetElement && editorRef.current) {
+          const selection = window.getSelection();
+          if (selection) {
+            const range = document.createRange();
+            range.selectNodeContents(targetElement);
+            range.collapse(true);
+            selection.removeAllRanges();
+            selection.addRange(range);
+          }
+          editorRef.current.focus();
+        }
+      }
+
       handleContentChange();
     }
   };

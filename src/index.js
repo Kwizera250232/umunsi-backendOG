@@ -289,7 +289,7 @@ app.use(async (req, res, next) => {
   const isApiRoute = requestPath.startsWith('/api');
 
   // Always allow minimal operational endpoints
-  const publicApiAllowList = ['/api/health', '/api/auth/login', '/api/payments/flutterwave/webhook'];
+  const publicApiAllowList = ['/api/health', '/api/auth/login', '/api/payments/kpay/webhook'];
   if (publicApiAllowList.some((prefix) => requestPath.startsWith(prefix))) {
     return next();
   }
