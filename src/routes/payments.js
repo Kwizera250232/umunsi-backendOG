@@ -201,18 +201,25 @@ router.post('/kpay/initialize', authenticateToken, async (req, res) => {
     const amount = Number(req.body?.amount || PREMIUM_SUPPORT_AMOUNT_RWF);
     const pmethod = String(req.body?.pmethod || 'momo').trim().toLowerCase();
     const rawMsisdn = req.body?.msisdn;
-    const msisdn = normalizeMsisdn(rawMsisdn);
+    
+    // For card payments, phone is optional. For mobile methods, it's required
+    let msisdn = '';
+    if (pmethod !== 'cc' && pmethod !== 'card') {
+      msisdn = normalizeMsisdn(rawMsisdn);
+      if (!msisdn || msisdn.length < 10) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid phone number',
+          message: 'Provide a valid mobile number. Example: 2507XXXXXXXX'
+        });
+      }
+    } else if (rawMsisdn) {
+      // If card method but phone provided, normalize it anyway for KPay
+      msisdn = normalizeMsisdn(rawMsisdn);
+    }
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ success: false, error: 'Invalid amount' });
-    }
-
-    if (!msisdn || msisdn.length < 10) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid phone number',
-        message: 'Provide a valid mobile number. Example: 2507XXXXXXXX'
-      });
     }
 
     const txRef = buildTxRef(req.user.id);
@@ -235,7 +242,6 @@ router.post('/kpay/initialize', authenticateToken, async (req, res) => {
 
     const kpayPayload = {
       action: 'pay',
-      msisdn,
       email: req.user.email,
       details: `Dutere inkunga ya ${amount}/ ku kwezi usome inkuru za premium.`,
       refid: txRef,
@@ -249,6 +255,11 @@ router.post('/kpay/initialize', authenticateToken, async (req, res) => {
       redirecturl: `${frontendBaseUrl}/subscriber/account?payment=callback&provider=kpay&txRef=${encodeURIComponent(txRef)}`,
       logourl: `${frontendBaseUrl}/images/logo.png`
     };
+
+    // Add msisdn only if provided (required for mobile methods, optional for cards)
+    if (msisdn) {
+      kpayPayload.msisdn = msisdn;
+    }
 
     const response = await kpayRequest(kpayPayload);
 
@@ -266,7 +277,7 @@ router.post('/kpay/initialize', authenticateToken, async (req, res) => {
           momtransactionid: response?.momtransactionid || null,
           authkey: response?.authkey || null,
           requestPmethod: pmethod,
-          msisdn
+          msisdn: msisdn || null
         })
       }
     });
