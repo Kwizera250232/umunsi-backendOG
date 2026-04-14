@@ -126,33 +126,44 @@ const buildMailtrapSender = () => {
 
   return {
     provider: 'mailtrap',
-    send: ({ to, subject, text, html }) =>
-      sendViaMailtrapApi({
-        token: mailtrapToken,
-        from: { email: senderEmail, name: senderName },
-        to,
-        subject,
-        text,
-        html,
-      }),
+    send: async ({ to, subject, text, html }) => {
+      for (const recipient of to) {
+        await sendViaMailtrapApi({
+          token: mailtrapToken,
+          from: { email: senderEmail, name: senderName },
+          to: [recipient],
+          subject,
+          text,
+          html,
+        });
+      }
+
+      return true;
+    },
   };
 };
 
 const buildSmtpSender = () => {
   const transport = getMailTransport();
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Ubutumwa bwa Umunsi';
   if (!transport || !fromAddress) return null;
 
   return {
     provider: 'smtp',
-    send: ({ to, subject, text, html }) =>
-      transport.sendMail({
-        from: fromAddress,
-        to: to.join(','),
-        subject,
-        text,
-        html,
-      }),
+    send: async ({ to, subject, text, html }) => {
+      for (const recipient of to) {
+        await transport.sendMail({
+          from: `${senderName} <${fromAddress}>`,
+          to: recipient,
+          subject,
+          text,
+          html,
+        });
+      }
+
+      return true;
+    },
   };
 };
 

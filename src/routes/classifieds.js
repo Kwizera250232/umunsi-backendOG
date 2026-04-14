@@ -90,27 +90,37 @@ const getBroadcastMailSender = () => {
   const smtpSender = smtpTransport && smtpFrom
     ? {
         provider: 'smtp',
-        send: ({ to, subject, text }) =>
-          smtpTransport.sendMail({
-            from: smtpFrom,
-            to: to.join(','),
-            subject,
-            text
-          })
+        send: async ({ to, subject, text }) => {
+          for (const recipient of to) {
+            await smtpTransport.sendMail({
+              from: `${apiName} <${smtpFrom}>`,
+              to: recipient,
+              subject,
+              text
+            });
+          }
+
+          return true;
+        }
       }
     : null;
 
   const apiSender = token && apiFrom
     ? {
         provider: 'mailtrap-api',
-        send: ({ to, subject, text }) =>
-          sendViaMailtrapApi({
-            token,
-            from: { email: apiFrom, name: apiName },
-            to,
-            subject,
-            text
-          })
+        send: async ({ to, subject, text }) => {
+          for (const recipient of to) {
+            await sendViaMailtrapApi({
+              token,
+              from: { email: apiFrom, name: apiName },
+              to: [recipient],
+              subject,
+              text
+            });
+          }
+
+          return true;
+        }
       }
     : null;
 

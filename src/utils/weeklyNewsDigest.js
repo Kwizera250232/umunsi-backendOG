@@ -151,13 +151,17 @@ const getMailSender = () => {
             auth: { user, pass }
           });
 
-          return transport.sendMail({
-            from: smtpFrom,
-            to: to.join(','),
-            subject,
-            text,
-            html
-          });
+          for (const recipient of to) {
+            await transport.sendMail({
+              from: `${senderName} <${smtpFrom}>`,
+              to: recipient,
+              subject,
+              text,
+              html
+            });
+          }
+
+          return true;
         }
       }
     : null;
@@ -165,15 +169,20 @@ const getMailSender = () => {
   const mailtrapSender = mailtrapToken && senderEmail
     ? {
         provider: 'mailtrap-api',
-        send: ({ to, subject, text, html }) =>
-          sendViaMailtrapApi({
-            token: mailtrapToken,
-            from: { email: senderEmail, name: senderName },
-            to,
-            subject,
-            text,
-            html
-          })
+        send: async ({ to, subject, text, html }) => {
+          for (const recipient of to) {
+            await sendViaMailtrapApi({
+              token: mailtrapToken,
+              from: { email: senderEmail, name: senderName },
+              to: [recipient],
+              subject,
+              text,
+              html
+            });
+          }
+
+          return true;
+        }
       }
     : null;
 
@@ -294,6 +303,7 @@ const escapeHtml = (value = '') => String(value)
   .replace(/'/g, '&#39;');
 
 const buildDigestHtml = (posts) => {
+  const logoUrl = resolveAssetUrl('/images/logo.png');
   const items = posts.map((post) => `
     <a href="${post.articleUrl}" style="display:block;text-decoration:none;color:#111827;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;margin-bottom:14px;background:#ffffff;">
       <div style="display:flex;gap:14px;align-items:flex-start;padding:14px;">
@@ -320,6 +330,9 @@ const buildDigestHtml = (posts) => {
         <div style="font-family:Arial,sans-serif;background:#f5f7fb;padding:24px 12px;color:#111827;">
           <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;">
             <div style="background:linear-gradient(135deg,#0f172a,#1d4ed8);padding:28px 22px;color:#ffffff;">
+              <div style="margin-bottom:14px;">
+                <img src="${escapeHtml(logoUrl)}" alt="Umunsi logo" style="display:block;height:58px;width:auto;max-width:160px;border-radius:12px;background:#ffffff;padding:8px;" />
+              </div>
               <div style="font-size:12px;letter-spacing:0.25em;text-transform:uppercase;opacity:0.9;margin-bottom:8px;">Ubutumwa bwa Umunsi</div>
               <h1 style="margin:0;font-size:28px;font-weight:800;">AMAKURU Y'ICYUMWERU YA UMUNSI</h1>
               <p style="margin:12px 0 0;font-size:15px;line-height:1.6;">Soma inkuru 5 zakunzwe cyane mu cyumweru dusoje.</p>
