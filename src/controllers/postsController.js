@@ -116,7 +116,7 @@ const parseEmailList = (value) => {
 const buildMailtrapSender = () => {
   const mailtrapToken = process.env.MAILTRAP_API_TOKEN;
   const senderEmail = process.env.MAILTRAP_SENDER_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
-  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi Notifications';
+  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi.com Notification';
   if (!mailtrapToken || !senderEmail) return null;
 
   return {

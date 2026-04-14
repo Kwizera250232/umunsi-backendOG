@@ -66,7 +66,7 @@ SMTP_PASS=your-app-password
 MAILTRAP_API_TOKEN=your-mailtrap-api-token
 MAILTRAP_API_HOST=send.api.mailtrap.io
 MAILTRAP_SENDER_EMAIL=hello@demomailtrap.co
-MAILTRAP_SENDER_NAME=Umunsi Notifications
+MAILTRAP_SENDER_NAME=Umunsi.com Notification
 
 # Milestone emails for post views
 ENABLE_POST_VIEW_MILESTONE_EMAILS=true

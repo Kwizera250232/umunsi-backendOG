@@ -85,7 +85,7 @@ const getBroadcastMailSender = () => {
   const smtpFrom = process.env.SMTP_FROM || process.env.SMTP_USER;
   const token = process.env.MAILTRAP_API_TOKEN;
   const apiFrom = process.env.MAILTRAP_SENDER_EMAIL || smtpFrom;
-  const apiName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi Notifications';
+  const apiName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi.com Notification';
 
   const smtpSender = smtpTransport && smtpFrom
     ? {
