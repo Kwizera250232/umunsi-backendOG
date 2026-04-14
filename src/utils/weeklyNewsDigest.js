@@ -369,8 +369,7 @@ const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails 
       ? onlyEmails.map((email) => String(email).trim().toLowerCase()).filter(Boolean)
       : (await prisma.user.findMany({
           where: {
-            isActive: true,
-            email: { not: null }
+            isActive: true
           },
           select: { email: true }
         }))
