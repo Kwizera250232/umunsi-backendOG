@@ -26,6 +26,7 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const frontendBuildPath = path.join(__dirname, '../public');
+const uploadsPath = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../uploads'));
 
 const escapeHtml = (value = '') => String(value)
   .replace(/&/g, '&amp;')
@@ -263,22 +264,31 @@ app.use((req, res, next) => {
   express.urlencoded({ extended: true, limit: '10mb' })(req, res, next);
 });
 
-// Static files with CORS headers
-app.use('/uploads', (req, res, next) => {
-  // Set CORS headers for static files
-  const requestOrigin = req.headers.origin;
-  const preferredFrontendOrigin = process.env.FRONTEND_URL || configuredOrigins[0] || 'https://umunsi-chi.vercel.app';
-  const staticOrigin = process.env.NODE_ENV === 'production'
-    ? ((requestOrigin && productionOrigins.includes(requestOrigin)) ? requestOrigin : preferredFrontendOrigin)
-    : 'http://localhost:5173';
+const uploadsStaticMiddleware = [
+  (req, res, next) => {
+    const requestOrigin = req.headers.origin;
+    const preferredFrontendOrigin = process.env.FRONTEND_URL || configuredOrigins[0] || 'https://umunsi-chi.vercel.app';
+    const staticOrigin = process.env.NODE_ENV === 'production'
+      ? ((requestOrigin && productionOrigins.includes(requestOrigin)) ? requestOrigin : preferredFrontendOrigin)
+      : 'http://localhost:5173';
 
-  res.header('Vary', 'Origin');
-  res.header('Access-Control-Allow-Origin', staticOrigin);
-  res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  next();
-}, express.static('uploads'));
+    res.header('Vary', 'Origin');
+    res.header('Access-Control-Allow-Origin', staticOrigin);
+    res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    next();
+  },
+  express.static(uploadsPath, {
+    fallthrough: false,
+    index: false,
+    maxAge: process.env.NODE_ENV === 'production' ? '7d' : 0
+  })
+];
+
+// Serve uploads both directly and through /api/uploads so production proxies can reach the files.
+app.use('/uploads', ...uploadsStaticMiddleware);
+app.use('/api/uploads', ...uploadsStaticMiddleware);
 
 // Maintenance mode middleware with admin bypass
 app.use(async (req, res, next) => {

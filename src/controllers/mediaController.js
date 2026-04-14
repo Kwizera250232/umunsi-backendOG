@@ -5,11 +5,13 @@ const fs = require('fs').promises;
 const sharp = require('sharp');
 
 const prisma = new PrismaClient();
+const uploadsRoot = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads'));
+const mediaUploadDir = path.join(uploadsRoot, 'media');
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
   destination: async (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../../uploads/media');
+    const uploadDir = mediaUploadDir;
     try {
       await fs.mkdir(uploadDir, { recursive: true });
       cb(null, uploadDir);
@@ -69,15 +71,16 @@ const generateThumbnail = async (filePath, filename) => {
   try {
     const thumbnailDir = path.join(path.dirname(filePath), 'thumbnails');
     await fs.mkdir(thumbnailDir, { recursive: true });
-    
-    const thumbnailPath = path.join(thumbnailDir, `thumb_${filename}`);
-    
+
+    const thumbnailFilename = `thumb_${path.parse(filename).name}.jpg`;
+    const thumbnailPath = path.join(thumbnailDir, thumbnailFilename);
+
     await sharp(filePath)
       .resize(300, 300, { fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality: 80 })
       .toFile(thumbnailPath);
-    
-    return thumbnailPath;
+
+    return `/uploads/media/thumbnails/${thumbnailFilename}`;
   } catch (error) {
     console.error('Error generating thumbnail:', error);
     return null;
@@ -211,9 +214,9 @@ const uploadMediaFiles = async (req, res) => {
 
       // Generate thumbnail for images
       if (file.mimetype.startsWith('image/')) {
-        const thumbnailPath = await generateThumbnail(file.path, file.filename);
-        if (thumbnailPath) {
-          thumbnailUrl = `/uploads/media/thumbnails/thumb_${file.filename}`;
+        const generatedThumbnailUrl = await generateThumbnail(file.path, file.filename);
+        if (generatedThumbnailUrl) {
+          thumbnailUrl = generatedThumbnailUrl;
         }
       }
 
@@ -320,11 +323,11 @@ const deleteMediaFile = async (req, res) => {
 
     // Delete physical files
     try {
-      const filePath = path.join(__dirname, '../../uploads/media', mediaFile.filename);
+      const filePath = path.join(mediaUploadDir, mediaFile.filename);
       await fs.unlink(filePath);
 
       if (mediaFile.thumbnailUrl) {
-        const thumbnailPath = path.join(__dirname, '../../uploads/media/thumbnails', `thumb_${mediaFile.filename}`);
+        const thumbnailPath = path.join(mediaUploadDir, 'thumbnails', path.basename(mediaFile.thumbnailUrl));
         await fs.unlink(thumbnailPath);
       }
     } catch (fileError) {
@@ -368,11 +371,11 @@ const deleteMediaFiles = async (req, res) => {
     // Delete physical files
     for (const mediaFile of mediaFiles) {
       try {
-        const filePath = path.join(__dirname, '../../uploads/media', mediaFile.filename);
+        const filePath = path.join(mediaUploadDir, mediaFile.filename);
         await fs.unlink(filePath);
 
         if (mediaFile.thumbnailUrl) {
-          const thumbnailPath = path.join(__dirname, '../../uploads/media/thumbnails', `thumb_${mediaFile.filename}`);
+          const thumbnailPath = path.join(mediaUploadDir, 'thumbnails', path.basename(mediaFile.thumbnailUrl));
           await fs.unlink(thumbnailPath);
         }
       } catch (fileError) {
