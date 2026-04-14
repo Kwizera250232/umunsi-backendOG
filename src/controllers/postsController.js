@@ -1,4 +1,6 @@
 const { PrismaClient } = require('@prisma/client');
+const fs = require('fs');
+const path = require('path');
 const slugify = require('slugify');
 const https = require('https');
 const nodemailer = require('nodemailer');
@@ -325,13 +327,52 @@ const extractFirstImageFromContent = (content = '') => {
   return match[1].trim();
 };
 
+const uploadsRoot = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads'));
+
+const resolveLocalUploadFile = (rawPath = '') => {
+  if (!rawPath) return null;
+
+  try {
+    const candidate = String(rawPath).trim();
+    if (!candidate) return null;
+
+    const pathname = candidate.startsWith('http://') || candidate.startsWith('https://')
+      ? new URL(candidate).pathname
+      : candidate;
+
+    if (!pathname.startsWith('/uploads/')) return null;
+    return path.join(uploadsRoot, pathname.replace(/^\/uploads\/?/, ''));
+  } catch {
+    return null;
+  }
+};
+
+const isLocalUploadAvailable = (rawPath = '') => {
+  const localFile = resolveLocalUploadFile(rawPath);
+  if (!localFile) return true;
+  return fs.existsSync(localFile);
+};
+
 const withFeaturedImageFallback = (post) => {
   if (!post) return post;
-  if (post.featuredImage) return post;
-  return {
-    ...post,
-    featuredImage: extractFirstImageFromContent(post.content) || null
-  };
+
+  const firstContentImage = extractFirstImageFromContent(post.content) || null;
+
+  if (!post.featuredImage) {
+    return {
+      ...post,
+      featuredImage: isLocalUploadAvailable(firstContentImage) ? firstContentImage : null
+    };
+  }
+
+  if (!isLocalUploadAvailable(post.featuredImage)) {
+    return {
+      ...post,
+      featuredImage: isLocalUploadAvailable(firstContentImage) ? firstContentImage : null
+    };
+  }
+
+  return post;
 };
 
 const sanitizePostForRole = (post, isAdmin) => {
