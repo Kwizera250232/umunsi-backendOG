@@ -12,9 +12,10 @@ const {
 } = require('../utils/postViewMilestones');
 
 const prisma = new PrismaClient();
+const MILESTONE_EMAIL_TIMEOUT_MS = Number(process.env.MILESTONE_EMAIL_TIMEOUT_MS || 10000);
 
 const isMilestoneEmailEnabled = () => {
-  const flag = String(process.env.ENABLE_POST_VIEW_MILESTONE_EMAILS || 'true').toLowerCase();
+  const flag = String(process.env.ENABLE_POST_VIEW_MILESTONE_EMAILS || 'false').toLowerCase();
   return !['0', 'false', 'no', 'off'].includes(flag);
 };
 
@@ -39,6 +40,7 @@ const sendViaMailtrapApi = async ({ token, from, to, subject, text, html, catego
           hostname: getMailtrapApiHost(),
           path: '/api/send',
           method: 'POST',
+          timeout: MILESTONE_EMAIL_TIMEOUT_MS,
           headers: {
             ...headers,
             'Content-Type': 'application/json',
@@ -57,6 +59,9 @@ const sendViaMailtrapApi = async ({ token, from, to, subject, text, html, catego
       );
 
       req.on('error', reject);
+      req.on('timeout', () => {
+        req.destroy(new Error(`Mailtrap API timeout after ${MILESTONE_EMAIL_TIMEOUT_MS}ms`));
+      });
       req.write(payload);
       req.end();
     });
@@ -88,6 +93,9 @@ const getMailTransport = () => {
     port,
     secure: port === 465,
     auth: { user, pass },
+    connectionTimeout: MILESTONE_EMAIL_TIMEOUT_MS,
+    greetingTimeout: MILESTONE_EMAIL_TIMEOUT_MS,
+    socketTimeout: MILESTONE_EMAIL_TIMEOUT_MS,
   });
 };
 
@@ -681,7 +689,11 @@ const getPost = async (req, res) => {
     // Track daily reads for admin analytics.
     incrementDailyViews(new Date(), 1);
 
-    await notifyPostMilestoneIfNeeded(post, updatedView.viewCount);
+    Promise.resolve()
+      .then(() => notifyPostMilestoneIfNeeded(post, updatedView.viewCount))
+      .catch((notificationError) => {
+        console.error('Non-blocking post milestone notification failed:', notificationError?.message || notificationError);
+      });
 
     // Convert tags from string to array
     const postWithTagsArray = {
