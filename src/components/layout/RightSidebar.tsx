@@ -1,10 +1,7 @@
-import { useState } from 'react';
-import { Flame, Image, Cloud, Sun, Moon, ChevronRight, TrendingUp, ExternalLink } from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+import { Flame, Image, Cloud, ChevronRight, TrendingUp, ExternalLink } from 'lucide-react';
 
 const RightSidebar = () => {
-  const { user } = useAuth();
-  const showAds = user?.role !== 'ADMIN';
+  const showAds = true;
 
   // Trending news for the sidebar
   const trendingNews = [
