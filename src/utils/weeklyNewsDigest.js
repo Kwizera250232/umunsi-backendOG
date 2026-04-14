@@ -10,7 +10,10 @@ const prisma = require('../database/prisma');
 });
 
 const DIGEST_STATE_PATH = path.join(__dirname, '../../data/weekly-news-digest.json');
-const CHECK_INTERVAL_MS = Number(process.env.WEEKLY_NEWS_CHECK_INTERVAL_MS || 60 * 60 * 1000);
+const DIGEST_TIME_ZONE = process.env.WEEKLY_NEWS_TIMEZONE || 'Africa/Kigali';
+const DIGEST_SEND_HOUR = Number(process.env.WEEKLY_NEWS_SEND_HOUR || 18);
+const DIGEST_SEND_MINUTE = Number(process.env.WEEKLY_NEWS_SEND_MINUTE || 0);
+const CHECK_INTERVAL_MS = Number(process.env.WEEKLY_NEWS_CHECK_INTERVAL_MS || 60 * 1000);
 const SUPPORT_PHONE = '0791859465';
 const SUPPORT_WHATSAPP = '250791859465';
 const DEFAULT_IMAGE = 'https://umunsi.com/images/logo.png';
@@ -64,20 +67,29 @@ const stripHtml = (content = '') =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const getZonedDate = (date = new Date()) => new Date(date.toLocaleString('en-US', { timeZone: DIGEST_TIME_ZONE }));
+
 const getDateKey = (date = new Date()) => {
-  const target = new Date(date);
-  target.setHours(0, 0, 0, 0);
-  return target.toISOString().slice(0, 10);
+  const target = getZonedDate(date);
+  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
 };
 
 const getFridayKey = (date = new Date()) => {
-  const target = new Date(date);
+  const target = getZonedDate(date);
   const day = target.getDay();
   const diff = 5 - day;
-  target.setHours(0, 0, 0, 0);
   target.setDate(target.getDate() + diff);
-  return getDateKey(target);
+  return `${target.getFullYear()}-${String(target.getMonth() + 1).padStart(2, '0')}-${String(target.getDate()).padStart(2, '0')}`;
 };
+
+const hasReachedScheduledSendTime = (date = new Date()) => {
+  const target = getZonedDate(date);
+  const currentMinutes = (target.getHours() * 60) + target.getMinutes();
+  const scheduledMinutes = (DIGEST_SEND_HOUR * 60) + DIGEST_SEND_MINUTE;
+  return currentMinutes >= scheduledMinutes;
+};
+
+const getScheduleLabel = () => `${String(DIGEST_SEND_HOUR).padStart(2, '0')}:${String(DIGEST_SEND_MINUTE).padStart(2, '0')} (${DIGEST_TIME_ZONE})`;
 
 const getMailtrapApiHost = () => process.env.MAILTRAP_API_HOST || 'send.api.mailtrap.io';
 
@@ -355,7 +367,8 @@ const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails 
   }
 
   const now = new Date();
-  const today = now.getDay();
+  const zonedNow = getZonedDate(now);
+  const today = zonedNow.getDay();
   const state = readState();
   const fridayKey = getFridayKey(now);
   const sendDateKey = getDateKey(now);
@@ -364,9 +377,13 @@ const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails 
     return { success: true, skipped: true, reason: 'Today is not Friday', fridayKey };
   }
 
+  if (!force && !hasReachedScheduledSendTime(now)) {
+    return { success: true, skipped: true, reason: `Waiting until ${getScheduleLabel()}`, fridayKey };
+  }
+
   if (!force && state.lastSentFridayKey === fridayKey && state.lastSentOn === sendDateKey) {
     return { success: true, skipped: true, reason: 'Weekly digest already sent for this Friday', fridayKey };
-  }
+  };
 
   const posts = await getTopWeeklyPosts(5);
   if (posts.length === 0) {
@@ -475,5 +492,6 @@ const startWeeklyNewsScheduler = () => {
 
 module.exports = {
   sendWeeklyNewsDigest,
-  startWeeklyNewsScheduler
+  startWeeklyNewsScheduler,
+  getScheduleLabel
 };
