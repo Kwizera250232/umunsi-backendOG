@@ -376,6 +376,10 @@ router.post('/', authenticateToken, [
       return res.status(400).json({ success: false, error: 'Validation failed', details: errors.array() });
     }
 
+    if (req.user.role !== 'USER') {
+      return res.status(403).json({ success: false, error: 'Kwamamaza bikorwa n\'abafatabuguzi gusa.' });
+    }
+
     const input = req.body;
     const ad = await prisma.classifiedAd.create({
       data: {

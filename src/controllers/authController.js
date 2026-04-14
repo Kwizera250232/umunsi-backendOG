@@ -60,10 +60,18 @@ class AuthController {
   async login(req, res) {
     try {
       const { email, password } = req.body;
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+
+      if (!normalizedEmail || !password) {
+        return res.status(400).json({
+          error: 'Missing credentials',
+          details: 'Email and password are required'
+        });
+      }
 
       // Find user by email
       const user = await prisma.user.findUnique({
-        where: { email: email.toLowerCase() }
+        where: { email: normalizedEmail }
       });
 
       if (!user) {

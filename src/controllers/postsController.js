@@ -292,28 +292,29 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
     const authorName = [author?.firstName, author?.lastName].filter(Boolean).join(' ') || author?.username || 'Author';
     const milestoneDate = formatMilestoneDate(new Date());
     const supportEmail = process.env.MILESTONE_SUPPORT_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER || 'info@umunsi.com';
-    const platformName = process.env.MILESTONE_PLATFORM_NAME || 'Umunsi Platform';
-    const subject = `article - ${post.title} achieved ${views.toLocaleString()} views on ${milestoneDate}!`;
+    const platformName = process.env.MILESTONE_PLATFORM_NAME || 'Umunsi.com Notification';
+    const subject = `Inkuru yawe "${post.title}" imaze kurebwa ${views.toLocaleString()} inshuro`;
     const text = [
       platformName,
       '',
-      `Congratulations, you have achieved ${views.toLocaleString()} views on the article ${post.title}.`,
-      `Milestone reached: ${reachedMilestone.toLocaleString()} views.`,
-      `Click to check it out: ${articleUrl}`,
+      `Turagushimiye. Inkuru yawe "${post.title}" imaze kurebwa ${views.toLocaleString()} inshuro.`,
+      `Intambwe wagezeho ni isomwa ${reachedMilestone.toLocaleString()} inshuro.`,
+      `Soma cyangwa uyisangize hano: ${articleUrl}`,
       '',
-      `For more information, contact ${supportEmail}`,
+      `Kubindi bisobanuro twandikire kuri ${supportEmail}`,
+      'Murakoze,',
       'Umunsi Ltd',
     ].join('\n');
     const html = `
       <div style="font-family: Arial, sans-serif; background-color: #f9fafb; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 0;">
         <div style="background-color: #ffffff; padding: 40px 20px; text-align: center;">
           <p style="margin: 0 0 20px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">${platformName}</p>
-          <h1 style="margin: 0 0 30px; font-size: 28px; font-weight: 700; color: #1f2937;">Congratulations</h1>
-          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #4b5563;">you have achieved <strong style="color: #f59e0b;">${views.toLocaleString()} views</strong> increase to the article <strong style="color: #1f2937;">${post.title}</strong>. Click to check it out</p>
-          <a href="${articleUrl}" style="display: inline-block; background-color: #1e40af; color: #ffffff; text-decoration: none; font-weight: 700; padding: 12px 28px; border-radius: 4px; font-size: 15px; margin: 30px 0;">Check out</a>
+          <h1 style="margin: 0 0 20px; font-size: 28px; font-weight: 700; color: #1f2937;">Turagushimiye</h1>
+          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #4b5563;">Inkuru yawe <strong style="color: #1f2937;">${post.title}</strong> imaze kurebwa <strong style="color: #f59e0b;">${views.toLocaleString()} inshuro</strong>.</p>
+          <a href="${articleUrl}" style="display: inline-block; background-color: #1e40af; color: #ffffff; text-decoration: none; font-weight: 700; padding: 12px 28px; border-radius: 4px; font-size: 15px; margin: 20px 0;">Soma inkuru</a>
         </div>
         <div style="background-color: #1e40af; color: #ffffff; padding: 30px 20px; text-align: center;">
-          <p style="margin: 0; font-size: 14px;">For more information, contact <a href="mailto:${supportEmail}" style="color: #ffffff; text-decoration: underline;">${supportEmail}</a></p>
+          <p style="margin: 0; font-size: 14px;">Kubindi bisobanuro twandikire kuri <a href="mailto:${supportEmail}" style="color: #ffffff; text-decoration: underline;">${supportEmail}</a></p>
           <p style="margin: 8px 0 0; font-size: 14px; font-weight: 600;">Umunsi Ltd</p>
         </div>
       </div>

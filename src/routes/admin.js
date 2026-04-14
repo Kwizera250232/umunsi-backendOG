@@ -5,6 +5,7 @@ const { authenticateToken, requireAdmin, requireEditor } = require('../middlewar
 const { DEFAULT_MESSAGE, getMaintenanceState, setMaintenanceState } = require('../utils/maintenance');
 const { getAdsBannersState, setAdsBannersState } = require('../utils/adsBanners');
 const { getTodayViews, getDailyViews } = require('../utils/viewStats');
+const { getAllPostShareStats } = require('../utils/postShareStats');
 
 const router = express.Router();
 
@@ -184,6 +185,9 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
     const totalLikes = viewsAndLikes._sum.likeCount || 0;
     const todayViews = getTodayViews();
     const dailyViews = getDailyViews(7);
+    const shareStats = getAllPostShareStats();
+    const totalShares = shareStats.total || 0;
+    const sharePlatforms = shareStats.byPlatform || {};
 
     res.json({
       // Flat structure for easy access
@@ -197,6 +201,8 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
       todayViews,
       dailyViews,
       totalLikes,
+      totalShares,
+      sharePlatforms,
       userGrowthPercentage: 12.5,
       articleGrowthPercentage: 8.3,
       // Also include nested data for backwards compatibility
@@ -208,7 +214,9 @@ router.get('/dashboard', authenticateToken, requireEditor, async (req, res) => {
         totalMedia,
         totalPosts,
         totalViews,
-        totalLikes
+        totalLikes,
+        totalShares,
+        sharePlatforms
       },
       recentArticles: recentPosts.map(post => ({
         id: post.id,

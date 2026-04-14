@@ -95,8 +95,30 @@ const incrementPostShareStats = (postId, platform = 'other') => {
   };
 };
 
+const getAllPostShareStats = () => {
+  const data = loadData();
+  const posts = data.posts || {};
+  const byPlatform = {};
+  let total = 0;
+
+  Object.values(posts).forEach((entry = {}) => {
+    total += Number(entry.total || 0);
+
+    Object.entries(entry.byPlatform || {}).forEach(([platform, count]) => {
+      byPlatform[platform] = Number(byPlatform[platform] || 0) + Number(count || 0);
+    });
+  });
+
+  return {
+    total,
+    byPlatform,
+    updatedAt: data.updatedAt || new Date().toISOString(),
+  };
+};
+
 module.exports = {
   getPostShareStats,
+  getAllPostShareStats,
   incrementPostShareStats,
   normalizePlatform,
 };

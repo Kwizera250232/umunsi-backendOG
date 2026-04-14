@@ -19,6 +19,7 @@ const mediaRoutes = require('./routes/media');
 const postsRoutes = require('./routes/posts');
 const paymentsRoutes = require('./routes/payments');
 const classifiedsRoutes = require('./routes/classifieds');
+const { startWeeklyNewsScheduler } = require('./utils/weeklyNewsDigest');
 const { DEFAULT_MESSAGE, getMaintenanceState } = require('./utils/maintenance');
 const { getAdsBannersState } = require('./utils/adsBanners');
 
@@ -521,6 +522,7 @@ async function startServer() {
           console.log(`🚀 Server running on port ${port}`);
           console.log(`📊 Environment: ${process.env.NODE_ENV}`);
           console.log(`🔗 Health check: http://localhost:${port}/api/health`);
+          startWeeklyNewsScheduler();
           resolve(server);
         });
         
