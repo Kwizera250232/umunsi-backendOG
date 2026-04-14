@@ -64,13 +64,19 @@ const stripHtml = (content = '') =>
     .replace(/\s+/g, ' ')
     .trim();
 
+const getDateKey = (date = new Date()) => {
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  return target.toISOString().slice(0, 10);
+};
+
 const getFridayKey = (date = new Date()) => {
   const target = new Date(date);
   const day = target.getDay();
   const diff = 5 - day;
   target.setHours(0, 0, 0, 0);
   target.setDate(target.getDate() + diff);
-  return target.toISOString().slice(0, 10);
+  return getDateKey(target);
 };
 
 const getMailtrapApiHost = () => process.env.MAILTRAP_API_HOST || 'send.api.mailtrap.io';
@@ -82,7 +88,7 @@ const sendViaMailtrapApi = async ({ token, from, to, subject, text, html }) => {
     subject,
     text,
     html,
-    category: 'Umunsi Weekly News'
+    category: "Amakuru y'icyumweru ya Umunsi"
   });
 
   const trySend = (headers) =>
@@ -132,7 +138,7 @@ const getMailSender = () => {
   const smtpFrom = process.env.SMTP_FROM || user;
   const mailtrapToken = process.env.MAILTRAP_API_TOKEN;
   const senderEmail = process.env.MAILTRAP_SENDER_EMAIL || smtpFrom;
-  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi.com Notification';
+  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Ubutumwa bwa Umunsi';
 
   const smtpSender = host && user && pass && smtpFrom
     ? {
@@ -263,17 +269,16 @@ const getTopWeeklyPosts = async (limit = 5) => {
 
 const buildDigestText = (posts) => {
   const intro = [
-    'UMUNSI WEEKLY NEWS',
+    "AMAKURU Y'ICYUMWERU YA UMUNSI",
     '',
     'Soma inkuru zakunzwe cyane mu cyumweru dusoje.',
-    'Ushaka kudutera inkunga twandikire kuri WhatsApp cyangwa uduhamagare kuri 0791859465.',
+    'Ushaka kudutera inkunga, twandikire kuri WhatsApp cyangwa uduhamagare kuri 0791859465.',
     'Inkunga yawe yadufasha gukomeza gushaka amakuru meza.',
     ''
   ];
 
   const list = posts.flatMap((post) => [
     `${post.rank}. ${post.title}`,
-    `Isomwa: ${Number(post.viewCount || 0).toLocaleString()} inshuro`,
     `Soma hano: ${post.articleUrl}`,
     ''
   ]);
@@ -294,7 +299,7 @@ const buildDigestHtml = (posts) => {
       <div style="display:flex;gap:14px;align-items:flex-start;padding:14px;">
         <img src="${escapeHtml(post.thumbnail)}" alt="${escapeHtml(post.title)}" style="width:110px;height:78px;object-fit:cover;border-radius:10px;flex-shrink:0;background:#f3f4f6;" />
         <div style="min-width:0;">
-          <div style="font-size:12px;color:#2563eb;font-weight:700;margin-bottom:6px;">Umwanya wa ${post.rank} • ${Number(post.viewCount || 0).toLocaleString()} isomwa</div>
+          <div style="font-size:12px;color:#2563eb;font-weight:700;margin-bottom:6px;">Inkuru ya ${post.rank} mu zakunzwe cyane</div>
           <div style="font-size:16px;color:#111827;font-weight:700;line-height:1.4;margin-bottom:6px;">${escapeHtml(post.title)}</div>
           <div style="font-size:13px;color:#4b5563;line-height:1.5;">${escapeHtml(post.summary || 'Kanda usome inkuru yuzuye kuri Umunsi.')}</div>
         </div>
@@ -303,27 +308,38 @@ const buildDigestHtml = (posts) => {
   `).join('');
 
   return `
-    <div style="font-family:Arial,sans-serif;background:#f5f7fb;padding:24px 12px;color:#111827;">
-      <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;">
-        <div style="background:linear-gradient(135deg,#0f172a,#1d4ed8);padding:28px 22px;color:#ffffff;">
-          <div style="font-size:12px;letter-spacing:0.25em;text-transform:uppercase;opacity:0.9;margin-bottom:8px;">Umunsi.com Notification</div>
-          <h1 style="margin:0;font-size:28px;font-weight:800;">UMUNSI WEEKLY NEWS</h1>
-          <p style="margin:12px 0 0;font-size:15px;line-height:1.6;">Soma inkuru zakunzwe cyane mu cyumweru dusoje.</p>
-          <p style="margin:10px 0 0;font-size:14px;line-height:1.6;">Ushaka kudutera inkunga twandikire kuri WhatsApp cyangwa uduhamagare kuri ${SUPPORT_PHONE}. Inkunga yawe yadufasha gukomeza gushaka amakuru meza.</p>
-        </div>
-        <div style="padding:20px;">
-          ${items}
-          <div style="margin-top:20px;padding:16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
-            <div style="font-size:14px;color:#111827;font-weight:700;margin-bottom:6px;">Dushyigikire</div>
-            <div style="font-size:13px;color:#4b5563;line-height:1.6;">WhatsApp: <a href="https://wa.me/${SUPPORT_WHATSAPP}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_PHONE}</a><br />Telefone: <a href="tel:${SUPPORT_PHONE}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_PHONE}</a></div>
+    <!DOCTYPE html>
+    <html lang="rw">
+      <head>
+        <meta charset="UTF-8" />
+        <meta http-equiv="Content-Language" content="rw" />
+        <meta name="google" content="notranslate" />
+        <title>Amakuru y'icyumweru ya Umunsi</title>
+      </head>
+      <body style="margin:0;padding:0;">
+        <div style="font-family:Arial,sans-serif;background:#f5f7fb;padding:24px 12px;color:#111827;">
+          <div style="max-width:680px;margin:0 auto;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #e5e7eb;">
+            <div style="background:linear-gradient(135deg,#0f172a,#1d4ed8);padding:28px 22px;color:#ffffff;">
+              <div style="font-size:12px;letter-spacing:0.25em;text-transform:uppercase;opacity:0.9;margin-bottom:8px;">Ubutumwa bwa Umunsi</div>
+              <h1 style="margin:0;font-size:28px;font-weight:800;">AMAKURU Y'ICYUMWERU YA UMUNSI</h1>
+              <p style="margin:12px 0 0;font-size:15px;line-height:1.6;">Soma inkuru 5 zakunzwe cyane mu cyumweru dusoje.</p>
+              <p style="margin:10px 0 0;font-size:14px;line-height:1.6;">Ushaka kudutera inkunga, twandikire kuri WhatsApp cyangwa uduhamagare kuri ${SUPPORT_PHONE}. Inkunga yawe yadufasha gukomeza gushaka amakuru meza.</p>
+            </div>
+            <div style="padding:20px;">
+              ${items}
+              <div style="margin-top:20px;padding:16px;border-radius:12px;background:#f9fafb;border:1px solid #e5e7eb;">
+                <div style="font-size:14px;color:#111827;font-weight:700;margin-bottom:6px;">Dushyigikire</div>
+                <div style="font-size:13px;color:#4b5563;line-height:1.6;">Twandikire kuri WhatsApp: <a href="https://wa.me/${SUPPORT_WHATSAPP}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_PHONE}</a><br />Cyangwa uduhamagare kuri: <a href="tel:${SUPPORT_PHONE}" style="color:#1d4ed8;text-decoration:none;">${SUPPORT_PHONE}</a></div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      </body>
+    </html>
   `;
 };
 
-const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails = [] } = {}) => {
+const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails = [], skipStateUpdate = false } = {}) => {
   const enabledFlag = String(process.env.ENABLE_WEEKLY_NEWS_DIGEST || 'true').toLowerCase();
   if (!force && ['0', 'false', 'no', 'off'].includes(enabledFlag)) {
     return { success: false, skipped: true, reason: 'Weekly digest disabled' };
@@ -333,12 +349,13 @@ const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails 
   const today = now.getDay();
   const state = readState();
   const fridayKey = getFridayKey(now);
+  const sendDateKey = getDateKey(now);
 
   if (!force && today !== 5) {
     return { success: true, skipped: true, reason: 'Today is not Friday', fridayKey };
   }
 
-  if (!force && state.lastSentFridayKey === fridayKey) {
+  if (!force && state.lastSentFridayKey === fridayKey && state.lastSentOn === sendDateKey) {
     return { success: true, skipped: true, reason: 'Weekly digest already sent for this Friday', fridayKey };
   }
 
@@ -347,23 +364,25 @@ const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails 
     return { success: false, skipped: true, reason: 'No published posts found for this week' };
   }
 
-  const recipients = onlyEmails.length > 0
-    ? onlyEmails.map((email) => String(email).trim().toLowerCase()).filter(Boolean)
-    : (await prisma.user.findMany({
-        where: {
-          isActive: true,
-          email: { not: null }
-        },
-        select: { email: true }
-      }))
-        .map((user) => String(user.email || '').trim().toLowerCase())
-        .filter(Boolean);
+  const recipients = Array.from(new Set(
+    onlyEmails.length > 0
+      ? onlyEmails.map((email) => String(email).trim().toLowerCase()).filter(Boolean)
+      : (await prisma.user.findMany({
+          where: {
+            isActive: true,
+            email: { not: null }
+          },
+          select: { email: true }
+        }))
+          .map((user) => String(user.email || '').trim().toLowerCase())
+          .filter(Boolean)
+  ));
 
   if (recipients.length === 0) {
     return { success: false, skipped: true, reason: 'No active users with email found' };
   }
 
-  const subject = 'UMUNSI WEEKLY NEWS - Soma inkuru zakunzwe cyane mu cyumweru dusoje';
+  const subject = "Amakuru y'icyumweru ya Umunsi - soma inkuru zakunzwe cyane";
   const text = buildDigestText(posts);
   const html = buildDigestHtml(posts);
 
@@ -373,7 +392,7 @@ const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails 
       dryRun: true,
       recipients: recipients.length,
       fridayKey,
-      topPosts: posts.map((post) => ({ title: post.title, views: post.viewCount, url: post.articleUrl }))
+      topPosts: posts.map((post) => ({ title: post.title, url: post.articleUrl }))
     };
   }
 
@@ -391,27 +410,31 @@ const sendWeeklyNewsDigest = async ({ force = false, dryRun = false, onlyEmails 
     sentCount += batch.length;
   }
 
-  const nextState = {
-    lastSentFridayKey: fridayKey,
-    history: [
-      {
-        sentAt: now.toISOString(),
-        fridayKey,
-        recipients: sentCount,
-        posts: posts.map((post) => ({ id: post.id, title: post.title, views: post.viewCount }))
-      },
-      ...(state.history || [])
-    ].slice(0, 20)
-  };
+  if (!skipStateUpdate) {
+    const nextState = {
+      lastSentFridayKey: fridayKey,
+      lastSentOn: sendDateKey,
+      history: [
+        {
+          sentAt: now.toISOString(),
+          fridayKey,
+          recipients: sentCount,
+          posts: posts.map((post) => ({ id: post.id, title: post.title, views: post.viewCount }))
+        },
+        ...(state.history || [])
+      ].slice(0, 20)
+    };
 
-  writeState(nextState);
+    writeState(nextState);
+  }
 
   return {
     success: true,
     fridayKey,
     recipients: sentCount,
     provider: mailSender.provider,
-    topPosts: posts.map((post) => ({ title: post.title, views: post.viewCount }))
+    persistentSchedule: !skipStateUpdate,
+    topPosts: posts.map((post) => ({ title: post.title }))
   };
 };
 

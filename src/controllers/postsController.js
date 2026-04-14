@@ -121,7 +121,7 @@ const parseEmailList = (value) => {
 const buildMailtrapSender = () => {
   const mailtrapToken = process.env.MAILTRAP_API_TOKEN;
   const senderEmail = process.env.MAILTRAP_SENDER_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
-  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Umunsi.com Notification';
+  const senderName = process.env.MAILTRAP_SENDER_NAME || 'Ubutumwa bwa Umunsi';
   if (!mailtrapToken || !senderEmail) return null;
 
   return {
@@ -292,7 +292,7 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
     const authorName = [author?.firstName, author?.lastName].filter(Boolean).join(' ') || author?.username || 'Author';
     const milestoneDate = formatMilestoneDate(new Date());
     const supportEmail = process.env.MILESTONE_SUPPORT_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER || 'info@umunsi.com';
-    const platformName = process.env.MILESTONE_PLATFORM_NAME || 'Umunsi.com Notification';
+    const platformName = process.env.MILESTONE_PLATFORM_NAME || 'Ubutumwa bwa Umunsi';
     const subject = `Inkuru yawe "${post.title}" imaze kurebwa ${views.toLocaleString()} inshuro`;
     const text = [
       platformName,
