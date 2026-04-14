@@ -5,6 +5,7 @@ const {
   getPosts,
   getPost,
   getPremiumDashboard,
+  trackPostShare,
   createPost,
   updatePost,
   deletePost,
@@ -24,6 +25,9 @@ router.get('/premium-dashboard', authenticateToken, getPremiumDashboard);
 
 // GET /api/posts/:id - Get single post
 router.get('/:id', optionalAuth, getPost);
+
+// POST /api/posts/:id/share - Track an article share click
+router.post('/:id/share', optionalAuth, trackPostShare);
 
 // Protected routes (require authentication)
 // POST /api/posts - Create new post (requires AUTHOR role or higher)

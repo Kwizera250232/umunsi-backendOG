@@ -10,6 +10,11 @@ const {
   getLastNotifiedMilestone,
   markMilestoneAsSent,
 } = require('../utils/postViewMilestones');
+const {
+  getPostShareStats,
+  incrementPostShareStats,
+  normalizePlatform,
+} = require('../utils/postShareStats');
 
 const prisma = new PrismaClient();
 const MILESTONE_EMAIL_TIMEOUT_MS = Number(process.env.MILESTONE_EMAIL_TIMEOUT_MS || 10000);
@@ -383,6 +388,17 @@ const withFeaturedImageFallback = (post) => {
   return post;
 };
 
+const withShareStats = (post) => {
+  if (!post?.id) return post;
+
+  const shareStats = getPostShareStats(post.id);
+  return {
+    ...post,
+    shareCount: Number(shareStats.total || 0),
+    shareBreakdown: shareStats.byPlatform || {},
+  };
+};
+
 const sanitizePostForRole = (post, isAdmin) => {
   if (isAdmin) return post;
   const { viewCount, ...rest } = post;
@@ -583,7 +599,7 @@ const getPosts = async (req, res) => {
     // Convert tags from string to array for each post
     const postsWithTagsArray = posts.map(post => {
       const mappedPost = {
-        ...withFeaturedImageFallback(post),
+        ...withShareStats(withFeaturedImageFallback(post)),
         tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       };
 
@@ -697,7 +713,7 @@ const getPost = async (req, res) => {
 
     // Convert tags from string to array
     const postWithTagsArray = {
-      ...withFeaturedImageFallback(post),
+      ...withShareStats(withFeaturedImageFallback(post)),
       viewCount: updatedView.viewCount,
       tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
     };
@@ -728,6 +744,51 @@ const getPost = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to fetch post'
+    });
+  }
+};
+
+const trackPostShare = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const platform = normalizePlatform(req.body?.platform || req.query?.platform || 'other');
+
+    let post = await prisma.post.findUnique({
+      where: { id },
+      select: { id: true, slug: true, title: true }
+    });
+
+    if (!post) {
+      post = await prisma.post.findUnique({
+        where: { slug: id },
+        select: { id: true, slug: true, title: true }
+      });
+    }
+
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        error: 'Post not found'
+      });
+    }
+
+    const shareStats = incrementPostShareStats(post.id, platform);
+
+    return res.json({
+      success: true,
+      data: {
+        postId: post.id,
+        slug: post.slug,
+        platform,
+        shareCount: shareStats.total,
+        shareBreakdown: shareStats.byPlatform || {}
+      }
+    });
+  } catch (error) {
+    console.error('Error tracking post share:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to track post share'
     });
   }
 };
@@ -1082,6 +1143,7 @@ module.exports = {
   getPosts,
   getPost,
   getPremiumDashboard,
+  trackPostShare,
   createPost,
   updatePost,
   deletePost,

@@ -164,6 +164,8 @@ export interface Post {
   viewCount: number;
   likeCount: number;
   commentCount: number;
+  shareCount?: number;
+  shareBreakdown?: Record<string, number>;
   isFeatured: boolean;
   isPinned: boolean;
   allowComments: boolean;

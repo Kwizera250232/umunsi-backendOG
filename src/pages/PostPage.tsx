@@ -119,6 +119,7 @@ const PostPage = () => {
   const [latestPosts, setLatestPosts] = useState<Post[]>([]);
   const [liked, setLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
+  const [shareCount, setShareCount] = useState(0);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [copied, setCopied] = useState(false);
   const [authorAvatarLoadFailed, setAuthorAvatarLoadFailed] = useState(false);
@@ -401,9 +402,13 @@ const PostPage = () => {
               <div className="px-4 py-3 border-b border-[#2b2f36] flex items-center justify-between">
                 <span className="text-sm text-gray-400">Sangiza:</span>
                 <div className="flex items-center gap-2">
+                  <span className="min-w-[36px] px-2 py-1 rounded-full bg-[#0b0e11] border border-[#2b2f36] text-[#fcd535] text-sm font-semibold text-center">
+                    {shareCount}
+                  </span>
                   <button 
                     onClick={() => handleShare('facebook')}
                     className="w-8 h-8 rounded-full bg-[#1877f2] flex items-center justify-center hover:opacity-80 transition-opacity"
+                    title={`Facebook shares • total ${shareCount}`}
                   >
                     <Facebook className="w-4 h-4 text-white" />
                   </button>
