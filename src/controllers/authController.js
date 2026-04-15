@@ -55,6 +55,56 @@ const verifyPasswordResetToken = (token) => {
 
 const generateVerificationCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
+const authUserSelect = {
+  id: true,
+  email: true,
+  username: true,
+  password: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  isActive: true,
+  avatar: true,
+  createdAt: true,
+  updatedAt: true
+};
+
+const profileUserSelect = {
+  id: true,
+  email: true,
+  username: true,
+  firstName: true,
+  lastName: true,
+  role: true,
+  isActive: true,
+  avatar: true,
+  createdAt: true,
+  updatedAt: true,
+  _count: {
+    select: { news: true }
+  }
+};
+
+const mapSafeUserResponse = (user = {}) => ({
+  id: user.id,
+  email: user.email,
+  username: user.username,
+  firstName: user.firstName,
+  lastName: user.lastName,
+  role: user.role,
+  isPremium: user.isPremium ?? false,
+  premiumSince: user.premiumSince ?? null,
+  premiumUntil: user.premiumUntil ?? null,
+  avatar: user.avatar ?? null,
+  profileUrl: user.profileUrl ?? null,
+  bio: user.bio ?? null,
+  isActive: user.isActive,
+  lastLogin: user.lastLogin ?? null,
+  createdAt: user.createdAt,
+  updatedAt: user.updatedAt,
+  _count: user._count
+});
+
 class AuthController {
   // User login
   async login(req, res) {
@@ -69,9 +119,11 @@ class AuthController {
         });
       }
 
-      // Find user by email
+      // Find user by email using a schema-safe select so auth keeps working
+      // even when optional columns have not been migrated yet in production.
       const user = await prisma.user.findUnique({
-        where: { email: normalizedEmail }
+        where: { email: normalizedEmail },
+        select: authUserSelect
       });
 
       if (!user) {
@@ -98,11 +150,16 @@ class AuthController {
         });
       }
 
-              // Update last login
+      // Update last login, but do not block sign-in if that optional field
+      // is unavailable on an older production schema.
+      try {
         await prisma.user.update({
           where: { id: user.id },
           data: { lastLogin: new Date() }
         });
+      } catch (lastLoginError) {
+        console.warn('⚠️ Unable to update last login:', lastLoginError.message);
+      }
 
       // Generate JWT token
       const token = jwt.sign(
@@ -116,22 +173,7 @@ class AuthController {
       );
 
       // Return user data (excluding password)
-      const userData = {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: user.role,
-        isPremium: user.isPremium,
-        premiumSince: user.premiumSince,
-        premiumUntil: user.premiumUntil,
-        avatar: user.avatar,
-        profileUrl: user.profileUrl,
-        bio: user.bio,
-        isActive: user.isActive,
-        lastLogin: user.lastLogin
-      };
+      const userData = mapSafeUserResponse(user);
 
       console.log('✅ User logged in successfully:', user.username);
 
@@ -319,27 +361,7 @@ class AuthController {
 
       const user = await prisma.user.findUnique({
         where: { id: userId },
-        select: {
-          id: true,
-          email: true,
-          username: true,
-          firstName: true,
-          lastName: true,
-          role: true,
-          isPremium: true,
-          premiumSince: true,
-          premiumUntil: true,
-          avatar: true,
-          profileUrl: true,
-          bio: true,
-          isActive: true,
-          lastLogin: true,
-          createdAt: true,
-          updatedAt: true,
-          _count: {
-            select: { news: true }
-          }
-        }
+        select: profileUserSelect
       });
 
       if (!user) {
@@ -351,7 +373,7 @@ class AuthController {
 
       res.json({
         success: true,
-        user
+        user: mapSafeUserResponse(user)
       });
 
     } catch (error) {
