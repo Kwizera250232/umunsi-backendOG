@@ -514,7 +514,13 @@ async function startServer() {
   try {
     await prisma.$connect();
     console.log('✅ Database connected successfully');
-    
+
+    const allowPortFallback = (() => {
+      const raw = String(process.env.ALLOW_PORT_FALLBACK || '').trim().toLowerCase();
+      if (raw) return !['0', 'false', 'no', 'off'].includes(raw);
+      return process.env.NODE_ENV !== 'production';
+    })();
+
     // Function to try different ports
     const tryPort = (port) => {
       return new Promise((resolve, reject) => {
@@ -525,9 +531,14 @@ async function startServer() {
           startWeeklyNewsScheduler();
           resolve(server);
         });
-        
+
         server.on('error', (error) => {
           if (error.code === 'EADDRINUSE') {
+            if (!allowPortFallback) {
+              reject(new Error(`Port ${port} is busy. Port fallback is disabled for this environment.`));
+              return;
+            }
+
             console.log(`⚠️  Port ${port} is busy, trying port ${port + 1}...`);
             server.close();
             reject(error);
@@ -537,25 +548,30 @@ async function startServer() {
         });
       });
     };
-    
+
     // Try ports starting from the configured port
     let currentPort = PORT;
     let server;
-    
-    while (!server && currentPort < PORT + 10) {
+    const maxPortExclusive = allowPortFallback ? PORT + 10 : PORT + 1;
+
+    while (!server && currentPort < maxPortExclusive) {
       try {
         server = await tryPort(currentPort);
       } catch (error) {
-        if (error.code === 'EADDRINUSE') {
+        if (error.code === 'EADDRINUSE' && allowPortFallback) {
           currentPort++;
         } else {
           throw error;
         }
       }
     }
-    
+
     if (!server) {
-      throw new Error(`Could not find an available port between ${PORT} and ${PORT + 9}`);
+      throw new Error(
+        allowPortFallback
+          ? `Could not find an available port between ${PORT} and ${PORT + 9}`
+          : `Configured port ${PORT} is busy. Stop the stale process and restart the service.`
+      );
     }
     
   } catch (error) {

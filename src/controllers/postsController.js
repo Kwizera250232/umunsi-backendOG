@@ -118,6 +118,16 @@ const parseEmailList = (value) => {
     .filter((item) => item.length > 0 && item.includes('@'));
 };
 
+const getMilestoneFallbackEmails = () => {
+  return Array.from(
+    new Set([
+      ...parseEmailList(process.env.MILESTONE_SELECTED_RECIPIENTS),
+      ...parseEmailList(process.env.MILESTONE_SUPPORT_EMAIL),
+      ...parseEmailList(process.env.ADMIN_EMAIL),
+    ])
+  );
+};
+
 const buildMailtrapSender = () => {
   const mailtrapToken = process.env.MAILTRAP_API_TOKEN;
   const senderEmail = process.env.MAILTRAP_SENDER_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER;
@@ -233,7 +243,12 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
     if (reachedMilestone <= lastNotified) return;
 
     const mailSender = getMailSender();
-    if (!mailSender) return;
+    if (!mailSender) {
+      console.warn(
+        `Milestone email skipped for post ${post.id}: milestone emails are enabled but no SMTP/Mailtrap sender is configured.`
+      );
+      return;
+    }
 
     const recipientMode = getMilestoneRecipientMode();
     const includeAuthorAndAdmins =
@@ -296,7 +311,16 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
       }
     }
 
-    if (recipients.size === 0) return;
+    if (recipients.size === 0) {
+      for (const fallbackEmail of getMilestoneFallbackEmails()) {
+        recipients.add(fallbackEmail);
+      }
+    }
+
+    if (recipients.size === 0) {
+      console.warn(`Milestone email skipped for post ${post.id}: no recipients were resolved.`);
+      return;
+    }
 
     const articlePath = post.slug ? `/post/${post.slug}` : `/article/${post.id}`;
     const articleUrl = `${getFrontendBaseUrl()}${articlePath}`;
@@ -304,12 +328,14 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
     const milestoneDate = formatMilestoneDate(new Date());
     const supportEmail = process.env.MILESTONE_SUPPORT_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER || 'info@umunsi.com';
     const platformName = process.env.MILESTONE_PLATFORM_NAME || 'Ubutumwa bwa Umunsi';
-    const subject = `Inkuru yawe "${post.title}" imaze kurebwa ${views.toLocaleString()} inshuro`;
+    const subject = `Turagushimiye ${authorName}! Inkuru yawe igeze ku isomwa ${reachedMilestone.toLocaleString()} inshuro`;
     const text = [
       platformName,
       '',
+      `Muraho ${authorName},`,
+      '',
       `Turagushimiye. Inkuru yawe "${post.title}" imaze kurebwa ${views.toLocaleString()} inshuro.`,
-      `Intambwe wagezeho ni isomwa ${reachedMilestone.toLocaleString()} inshuro.`,
+      `Intambwe wagezeho ni isomwa ${reachedMilestone.toLocaleString()} inshuro ku wa ${milestoneDate}.`,
       `Soma cyangwa uyisangize hano: ${articleUrl}`,
       '',
       `Kubindi bisobanuro twandikire kuri ${supportEmail}`,
@@ -320,8 +346,10 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
       <div style="font-family: Arial, sans-serif; background-color: #f9fafb; line-height: 1.6; color: #1f2937; max-width: 600px; margin: 0 auto; padding: 0;">
         <div style="background-color: #ffffff; padding: 40px 20px; text-align: center;">
           <p style="margin: 0 0 20px; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;">${platformName}</p>
+          <p style="margin: 0 0 8px; font-size: 15px; color: #4b5563;">Muraho ${authorName},</p>
           <h1 style="margin: 0 0 20px; font-size: 28px; font-weight: 700; color: #1f2937;">Turagushimiye</h1>
-          <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.5; color: #4b5563;">Inkuru yawe <strong style="color: #1f2937;">${post.title}</strong> imaze kurebwa <strong style="color: #f59e0b;">${views.toLocaleString()} inshuro</strong>.</p>
+          <p style="margin: 0 0 14px; font-size: 16px; line-height: 1.5; color: #4b5563;">Inkuru yawe <strong style="color: #1f2937;">${post.title}</strong> imaze kurebwa <strong style="color: #f59e0b;">${views.toLocaleString()} inshuro</strong>.</p>
+          <p style="margin: 0 0 20px; font-size: 15px; color: #4b5563;">Wageze ku ntambwe ya <strong style="color: #1e40af;">${reachedMilestone.toLocaleString()} inshuro</strong> ku wa ${milestoneDate}.</p>
           <a href="${articleUrl}" style="display: inline-block; background-color: #1e40af; color: #ffffff; text-decoration: none; font-weight: 700; padding: 12px 28px; border-radius: 4px; font-size: 15px; margin: 20px 0;">Soma inkuru</a>
         </div>
         <div style="background-color: #1e40af; color: #ffffff; padding: 30px 20px; text-align: center;">
