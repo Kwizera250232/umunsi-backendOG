@@ -1,0 +1,46 @@
+START
+FLAG=ENABLE_POST_VIEW_MILESTONE_EMAILS=true
+POST_META=cmnq3rint037h452pcwwh56h2|ibihe-byingenzi-byaranze-umunsi-wa-3-wa-shampiyona-yu-rwanda|Ibihe by'ingenzi byaranze umunsi wa 3 wa Shampiyona y'u Rwanda
+RECORDED=NONE
+LOGS_BEGIN
+[32m0|umunsi-b | [39m📁 Files: 1
+[32m0|umunsi-b | [39m📁 Body keys: []
+[32m0|umunsi-b | [39m📁 Upload request received
+[32m0|umunsi-b | [39m📁 Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryYHxjJOzuLjr9nxnA
+[32m0|umunsi-b | [39m📁 Files: 1
+[32m0|umunsi-b | [39m📁 Body keys: []
+[32m0|umunsi-b | [39m📁 Upload request received
+[32m0|umunsi-b | [39m📁 Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryEabM0Bvj6tXVASxA
+[32m0|umunsi-b | [39m📁 Files: 1
+[32m0|umunsi-b | [39m📁 Body keys: []
+[32m0|umunsi-b | [39m✅ User logged in successfully: kwizerajeandedieu250
+[32m0|umunsi-b | [39m📁 Upload request received
+[32m0|umunsi-b | [39m📁 Content-Type: multipart/form-data; boundary=----WebKitFormBoundaryNy9Z6KrldajsBtZt
+[32m0|umunsi-b | [39m📁 Files: 1
+[32m0|umunsi-b | [39m📁 Body keys: []
+[32m0|umunsi-b | [39m📁 Upload request received
+[32m0|umunsi-b | [39m📁 Content-Type: multipart/form-data; boundary=----WebKitFormBoundary69BVPJe1RSiAyExM
+[32m0|umunsi-b | [39m📁 Files: 1
+[32m0|umunsi-b | [39m📁 Body keys: []
+[32m0|umunsi-b | [39m📁 Upload request received
+[32m0|umunsi-b | [39m📁 Content-Type: multipart/form-data; boundary=----WebKitFormBoundarykZgJPlafTfpjOVGj
+[32m0|umunsi-b | [39m📁 Files: 1
+[32m0|umunsi-b | [39m📁 Body keys: []
+[32m0|umunsi-b | [39m📁 Upload request received
+[32m0|umunsi-b | [39m📁 Content-Type: multipart/form-data; boundary=----WebKitFormBoundarySDien6Ns9RLlYTQe
+[32m0|umunsi-b | [39m📁 Files: 1
+[32m0|umunsi-b | [39m📁 Body keys: []
+[32m0|umunsi-b | [39m🛑 SIGINT received, shutting down gracefully
+[32m0|umunsi-b | [39m✅ Database connected successfully
+[32m0|umunsi-b | [39m⚠️  Port 3000 is busy, trying port 3001...
+[32m0|umunsi-b | [39m🚀 Server running on port 3001
+[32m0|umunsi-b | [39m📊 Environment: production
+[32m0|umunsi-b | [39m🔗 Health check: http://localhost:3001/api/health
+[32m0|umunsi-b | [39m🛑 SIGINT received, shutting down gracefully
+[32m0|umunsi-b | [39m✅ Database connected successfully
+[32m0|umunsi-b | [39m⚠️  Port 3000 is busy, trying port 3001...
+[32m0|umunsi-b | [39m🚀 Server running on port 3001
+[32m0|umunsi-b | [39m📊 Environment: production
+[32m0|umunsi-b | [39m🔗 Health check: http://localhost:3001/api/health
+
+LOGS_END

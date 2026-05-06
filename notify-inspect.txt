@@ -1,0 +1,14 @@
+ENV_FLAG
+ENABLE_POST_VIEW_MILESTONE_EMAILS=true
+PM2_LIST
+┌────┬───────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name              │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼───────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ [1m[36m0[39m[22m  │ umunsi-backend    │ default     │ 1.0.0   │ [7m[1mfork[22m[27m    │ 49414    │ 3m     │ 1    │ [32m[1monline[22m[39m    │ 0%       │ 105.1mb  │ [1mroot[22m     │ [90mdisabled[39m │
+└────┴───────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+PORT_3000
+COMMAND   PID   USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+node    47065 umunsi   28u  IPv6 352342      0t0  TCP *:3000 (LISTEN)
+PORT_3001
+COMMAND     PID   USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+node\x20/ 49414 umunsi   29u  IPv6 376600      0t0  TCP *:3001 (LISTEN)

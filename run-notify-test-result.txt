@@ -1,0 +1,53 @@
+POST_META=cmnsl8qsk000f1160sleknmn6|ibisobanuro-bya-neg-g-ku-rupfu-rwuwari-wamusuye|Ibisobanuro bya Neg G ku rupfu rw’uwari wamusuye
+RECORDED=NONE
+RECENT_LOGS
+[31m0|umunsi-b | [39m    at async startServer (/home/umunsi/backend-api/src/index.js:504:5) {
+[31m0|umunsi-b | [39m  clientVersion: '5.22.0',
+[31m0|umunsi-b | [39m  errorCode: 'P1003'
+[31m0|umunsi-b | [39m}
+[31m0|umunsi-b | [39m❌ Failed to start server: PrismaClientInitializationError: Database `umunsi_db` does not exist on the database server at `127.0.0.1:5432`.
+[31m0|umunsi-b | [39m    at t (/home/umunsi/backend-api/node_modules/@prisma/client/runtime/library.js:112:2488)
+[31m0|umunsi-b | [39m    at async startServer (/home/umunsi/backend-api/src/index.js:504:5) {
+[31m0|umunsi-b | [39m  clientVersion: '5.22.0',
+[31m0|umunsi-b | [39m  errorCode: 'P1003'
+[31m0|umunsi-b | [39m}
+[31m0|umunsi-b | [39m❌ Error generating article meta preview: ENOENT: no such file or directory, open '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39m❌ Error generating article meta preview: ENOENT: no such file or directory, open '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39mError: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/public/index.html'
+[31m0|umunsi-b | [39m❌ Global error handler: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/uploads/media/files-1776078572744-498504128.jpeg'
+[31m0|umunsi-b | [39m❌ Error stack: Error: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/uploads/media/files-1776078572744-498504128.jpeg'
+[31m0|umunsi-b | [39m❌ Global error handler: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/uploads/media/files-1776063951696-935092369.jpg'
+[31m0|umunsi-b | [39m❌ Error stack: Error: ENOENT: no such file or directory, stat '/home/umunsi/backend-api/uploads/media/files-1776063951696-935092369.jpg'
+
