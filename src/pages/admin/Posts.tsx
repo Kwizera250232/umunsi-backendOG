@@ -21,12 +21,16 @@ import {
   AlertCircle,
   Sparkles,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Lock
 } from 'lucide-react';
 import { apiClient, Post, Category } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const Posts: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAuthorOnly = user?.role === 'AUTHOR';
   const [posts, setPosts] = useState<Post[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
@@ -78,10 +82,16 @@ const Posts: React.FC = () => {
       if (selectedStatus !== 'all') params.status = selectedStatus;
       if (selectedCategory !== 'all') params.category = selectedCategory;
       if (searchTerm) params.search = searchTerm;
+      if (isAuthorOnly && user?.id) params.authorId = user.id;
 
       const response = await apiClient.getPosts(params);
-      setPosts(response.data);
-      setTotalPages(response.pagination.pages);
+      const fetchedPosts = response.data || [];
+      const authorPosts = isAuthorOnly && user?.id
+        ? fetchedPosts.filter((post) => post.author?.id === user.id)
+        : fetchedPosts;
+
+      setPosts(authorPosts);
+      setTotalPages(response.pagination?.pages || 1);
     } catch (error) {
       console.error('Error fetching posts:', error);
       setError('Failed to load posts. Please check your connection and try again.');
@@ -172,7 +182,7 @@ const Posts: React.FC = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-white">Posts</h1>
-            <p className="text-gray-400 mt-1">Manage your blog posts and articles</p>
+            <p className="text-gray-400 mt-1">{isAuthorOnly ? 'Reba kandi uhindure inkuru wanditse gusa' : 'Manage your blog posts and articles'}</p>
           </div>
           <button 
             onClick={() => navigate('/admin/posts/add')}
@@ -327,6 +337,7 @@ const Posts: React.FC = () => {
                       </span>
                   </div>
                   <div className="flex items-center space-x-1">
+                    {post.isPremium && <Lock className="w-4 h-4 text-[#fcd535]" />}
                     {post.isFeatured && <Star className="w-4 h-4 text-[#fcd535]" />}
                     {post.isPinned && <Pin className="w-4 h-4 text-blue-400" />}
                   </div>
@@ -458,6 +469,7 @@ const Posts: React.FC = () => {
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-white truncate flex items-center">
                           {post.title}
+                          {post.isPremium && <Lock className="w-3 h-3 text-[#fcd535] ml-2" />}
                           {post.isFeatured && <Star className="w-3 h-3 text-[#fcd535] ml-2" />}
                         </p>
                         {post.excerpt && <p className="text-xs text-gray-500 truncate">{post.excerpt}</p>}

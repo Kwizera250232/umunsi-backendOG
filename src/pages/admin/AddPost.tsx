@@ -22,11 +22,20 @@ import {
   Sparkles
 } from 'lucide-react';
 import { apiClient, Category, MediaFile } from '../../services/api';
+
+const DEFAULT_EDITORIAL_CATEGORIES = [
+  { name: 'Inkuru Nyamukuru', description: 'Inkuru zatoranyijwe nk’izingenzi ku rubuga.' },
+  { name: 'Ubuzima', description: 'Inkuru zijyanye n’ubuzima n’imibereho myiza.' },
+  { name: "Inkuru z'Urukundo", description: 'Inkuru zijyanye n’urukundo n’imibanire.' }
+];
 import RichTextEditor from '../../components/RichTextEditor';
 import MediaLibraryModal from '../../components/MediaLibraryModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 const AddPost: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAuthorOnly = user?.role === 'AUTHOR';
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [formData, setFormData] = useState({
@@ -35,6 +44,7 @@ const AddPost: React.FC = () => {
     excerpt: '',
     featuredImage: '',
     status: 'DRAFT' as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED',
+    isPremium: false,
     categoryId: '',
     isFeatured: false,
     isPinned: false,
@@ -51,12 +61,34 @@ const AddPost: React.FC = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [user?.role]);
 
   const fetchCategories = async () => {
     try {
       const response = await apiClient.getCategories();
-      setCategories(response);
+      let resolvedCategories = response;
+
+      if (user?.role === 'ADMIN') {
+        const existingNames = new Set(response.map((category) => category.name.trim().toLowerCase()));
+        const missingCategories = DEFAULT_EDITORIAL_CATEGORIES.filter(
+          (category) => !existingNames.has(category.name.trim().toLowerCase())
+        );
+
+        if (missingCategories.length > 0) {
+          await Promise.all(
+            missingCategories.map((category) =>
+              apiClient.createCategory({
+                name: category.name,
+                description: category.description,
+                isActive: true,
+              }).catch(() => null)
+            )
+          );
+          resolvedCategories = await apiClient.getCategories();
+        }
+      }
+
+      setCategories(resolvedCategories);
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -148,7 +180,8 @@ const AddPost: React.FC = () => {
         content: formData.content,
         excerpt: formData.excerpt || undefined,
         featuredImage: formData.featuredImage || undefined,
-        status: formData.status,
+        status: isAuthorOnly ? 'DRAFT' : formData.status,
+        isPremium: formData.isPremium,
         categoryId: formData.categoryId || undefined,
         isFeatured: formData.isFeatured,
         isPinned: formData.isPinned,
@@ -198,13 +231,9 @@ const AddPost: React.FC = () => {
 
   const handleFeaturedImageSelect = (media: MediaFile) => {
     setSelectedFeaturedImage(media);
-    const getServerBaseUrl = () => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      return apiUrl.replace('/api', '');
-    };
     setFormData(prev => ({
       ...prev,
-      featuredImage: `${getServerBaseUrl()}${media.url}`
+      featuredImage: media.url || ''
     }));
   };
 
@@ -236,7 +265,7 @@ const AddPost: React.FC = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-white">Create New Article</h1>
-                  <p className="text-gray-300 mt-1">Write and publish a new news article</p>
+                  <p className="text-gray-300 mt-1">{isAuthorOnly ? 'Andika inkuru yawe uyishyire muri Draft, admin ni we uyipubulisha.' : 'Write and publish a new news article'}</p>
                 </div>
               </div>
             </div>
@@ -261,7 +290,7 @@ const AddPost: React.FC = () => {
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              {loading ? 'Saving...' : 'Publish Article'}
+              {loading ? 'Saving...' : isAuthorOnly ? 'Save as Draft' : 'Publish Article'}
             </button>
           </div>
         </div>
@@ -436,12 +465,14 @@ const AddPost: React.FC = () => {
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
+                  disabled={isAuthorOnly}
                   className="w-full px-3 py-2.5 bg-[#0b0e11] border border-[#2b2f36] rounded-xl focus:ring-2 focus:ring-[#fcd535]/50 focus:border-[#fcd535] text-white"
                 >
                   <option value="DRAFT">Draft</option>
-                  <option value="PUBLISHED">Published</option>
-                  <option value="ARCHIVED">Archived</option>
+                  {!isAuthorOnly && <option value="PUBLISHED">Published</option>}
+                  {!isAuthorOnly && <option value="ARCHIVED">Archived</option>}
                 </select>
+                {isAuthorOnly && <p className="mt-1 text-xs text-gray-500">Author account ishobora kubika Draft gusa. Admin ni we ukora approve/publish.</p>}
               </div>
 
               {/* Category */}
@@ -467,7 +498,19 @@ const AddPost: React.FC = () => {
 
               {/* Options */}
               <div className="space-y-3 pt-2">
-                <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
+                {!isAuthorOnly && <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    name="isPremium"
+                    checked={formData.isPremium}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-[#fcd535] bg-[#0b0e11] border-[#2b2f36] rounded focus:ring-[#fcd535]"
+                  />
+                  <Lock className="w-4 h-4 ml-3 text-[#fcd535]" />
+                  <span className="ml-2 text-sm text-white">Premium Article (paywall)</span>
+                </label>}
+
+                {!isAuthorOnly && <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
                   <input
                     type="checkbox"
                     name="isFeatured"
@@ -477,9 +520,9 @@ const AddPost: React.FC = () => {
                   />
                   <Star className="w-4 h-4 ml-3 text-yellow-500" />
                   <span className="ml-2 text-sm text-white">Featured Article</span>
-                </label>
+                </label>}
 
-                <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
+                {!isAuthorOnly && <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
                   <input
                     type="checkbox"
                     name="isPinned"
@@ -489,7 +532,7 @@ const AddPost: React.FC = () => {
                   />
                   <Pin className="w-4 h-4 ml-3 text-blue-500" />
                   <span className="ml-2 text-sm text-white">Pinned Article</span>
-                </label>
+                </label>}
 
                 <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
                   <input

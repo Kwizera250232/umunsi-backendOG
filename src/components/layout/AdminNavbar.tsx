@@ -38,14 +38,22 @@ interface AdminNavbarProps {
   } | null;
 }
 
+interface MobileNavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string; size?: number }>;
+  adminOnly?: boolean;
+  hiddenForAuthor?: boolean;
+}
+
 const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [theme, setTheme] = useState<'dark' | 'day'>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return localStorage.getItem('umunsi_theme') === 'day' ? 'day' : 'dark';
+    if (typeof window === 'undefined') return 'day';
+    return localStorage.getItem('umunsi_theme') === 'dark' ? 'dark' : 'day';
   });
   const location = useLocation();
   const navigate = useNavigate();
@@ -58,16 +66,32 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
     localStorage.setItem('umunsi_theme', theme);
   }, [theme]);
 
-  const navigation = [
+  const isAdmin = user?.role?.toUpperCase() === 'ADMIN';
+  const isAuthorOnly = user?.role?.toUpperCase() === 'AUTHOR';
+
+  const navigation: MobileNavItem[] = [
     { name: 'Dashboard', href: '/admin', icon: BarChart3 },
+    { name: 'Articles', href: '/admin/articles', icon: FileText, hiddenForAuthor: true },
+    { name: 'News', href: '/admin/news', icon: FileText, hiddenForAuthor: true },
+    { name: 'Breaking News', href: '/admin/breaking-news', icon: Bell, hiddenForAuthor: true },
+    { name: 'Featured News', href: '/admin/featured-news', icon: Crown, hiddenForAuthor: true },
     { name: 'Posts', href: '/admin/posts', icon: FileText },
-    { name: 'Categories', href: '/admin/categories', icon: FolderOpen },
-    { name: 'Media', href: '/admin/media', icon: Image },
-    { name: 'Users', href: '/admin/users', icon: Users },
-    { name: 'Ads', href: '/admin/ads-management', icon: Megaphone },
-    { name: 'Analytics', href: '/admin/analytics', icon: Activity },
-    { name: 'Settings', href: '/admin/settings', icon: Settings },
+    { name: 'Add Story', href: '/admin/posts/add', icon: FileText },
+    { name: 'Categories', href: '/admin/categories', icon: FolderOpen, hiddenForAuthor: true },
+    { name: 'Media Library', href: '/admin/media/library', icon: Image },
+    { name: 'Upload Media', href: '/admin/media/add', icon: Image },
+    { name: 'Media', href: '/admin/media', icon: Image, hiddenForAuthor: true },
+    { name: 'Users', href: '/admin/users', icon: Users, hiddenForAuthor: true },
+    { name: 'Roles', href: '/admin/roles', icon: Shield, adminOnly: true },
+    { name: 'Ads', href: '/admin/ads-management', icon: Megaphone, hiddenForAuthor: true },
+    { name: 'Analytics', href: '/admin/analytics', icon: Activity, hiddenForAuthor: true },
+    { name: 'Logs', href: '/admin/logs', icon: Activity, adminOnly: true },
+    { name: 'Settings', href: '/admin/settings', icon: Settings, hiddenForAuthor: true },
   ];
+
+  const visibleNavigation = navigation.filter(
+    (item) => (!item.adminOnly || isAdmin) && (!isAuthorOnly || !item.hiddenForAuthor)
+  );
 
   const handleLogout = async () => {
     try {
@@ -103,7 +127,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
 
       {/* Navbar */}
       <nav className="bg-[#181a20]/95 backdrop-blur-xl border-b border-[#2b2f36] sticky top-0 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             
             {/* Left side - Logo and Mobile menu */}
@@ -269,7 +293,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
 
         {/* Mobile navigation menu */}
         <div className={`
-          lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-[#0b0e11] border-r border-[#2b2f36] transform transition-transform duration-300 ease-in-out
+          lg:hidden fixed inset-y-0 left-0 z-50 w-72 bg-[#0b0e11] border-r border-[#2b2f36] transform transition-transform duration-300 ease-in-out flex flex-col
           ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
         `}>
           <div className="flex items-center justify-between p-4 border-b border-[#2b2f36]">
@@ -290,8 +314,8 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
             </button>
           </div>
 
-          <nav className="p-4 space-y-1">
-              {navigation.map((item) => {
+          <nav className="flex-1 overflow-y-auto p-4 space-y-1 pb-24">
+              {visibleNavigation.map((item) => {
                 const Icon = item.icon;
               const isActive = location.pathname === item.href || 
                 (item.href !== '/admin' && location.pathname.startsWith(item.href));
@@ -325,7 +349,7 @@ const AdminNavbar: React.FC<AdminNavbarProps> = ({ user: propUser }) => {
           </nav>
 
           {/* Mobile user section */}
-          <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-[#2b2f36] bg-[#0b0e11]">
+          <div className="mt-auto p-4 border-t border-[#2b2f36] bg-[#0b0e11]">
             <div className="flex items-center space-x-3 p-3 bg-[#1e2329] rounded-xl border border-[#2b2f36]">
               <div className="relative">
                 <div className="w-10 h-10 bg-gradient-to-br from-[#fcd535] to-[#f0b90b] rounded-xl flex items-center justify-center">

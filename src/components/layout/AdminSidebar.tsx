@@ -88,8 +88,8 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
   });
   const [countsLoading, setCountsLoading] = useState(true);
   const [theme, setTheme] = useState<'dark' | 'day'>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return localStorage.getItem('umunsi_theme') === 'day' ? 'day' : 'dark';
+    if (typeof window === 'undefined') return 'day';
+    return localStorage.getItem('umunsi_theme') === 'dark' ? 'dark' : 'day';
   });
 
   // Fetch database counts
@@ -291,9 +291,20 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ isCollapsed, onToggleCollap
     }
   ];
 
-  // Filter out admin-only items for non-admin users
   const isAdmin = user?.role === 'ADMIN';
-  const filteredSidebarItems = sidebarItems.filter(item => !item.adminOnly || isAdmin);
+  const isAuthorOnly = user?.role === 'AUTHOR';
+  const authorAllowedPaths = ['/admin', '/admin/posts', '/admin/media', '/admin/media/library', '/admin/media/add'];
+  const isPathAllowedForAuthor = (path: string) =>
+    authorAllowedPaths.some((allowed) => path === allowed || path.startsWith(`${allowed}/`));
+
+  // Filter sidebar by role: Author sees only writing and media workflow.
+  const filteredSidebarItems = sidebarItems
+    .filter((item) => !item.adminOnly || isAdmin)
+    .map((item) => ({
+      ...item,
+      subItems: item.subItems?.filter((sub) => (!sub.adminOnly || isAdmin) && (!isAuthorOnly || isPathAllowedForAuthor(sub.path)))
+    }))
+    .filter((item) => !isAuthorOnly || isPathAllowedForAuthor(item.path) || (item.subItems && item.subItems.length > 0));
 
   const getCategoryItems = (category: string) => {
     return filteredSidebarItems.filter(item => item.category === category);

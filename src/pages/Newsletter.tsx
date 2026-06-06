@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Send, CheckCircle, Bell, Newspaper, TrendingUp, Clock, Eye, ChevronRight } from 'lucide-react';
-import { apiClient, Post, Category } from '../services/api';
+import { apiClient, Post, Category, resolveAssetUrl, extractFirstImageFromHtml } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const getServerBaseUrl = () => {
@@ -31,7 +31,12 @@ const Newsletter = () => {
     try {
       const postsResponse = await apiClient.getPosts({ status: 'PUBLISHED', limit: 10 });
       if (postsResponse?.data) {
-        setPosts(postsResponse.data);
+        setPosts(
+          postsResponse.data.map((post) => ({
+            ...post,
+            featuredImage: post.featuredImage || extractFirstImageFromHtml(post.content) || undefined
+          }))
+        );
       }
       const categoriesResponse = await apiClient.getCategories({ includeInactive: false });
       if (categoriesResponse) {
@@ -58,9 +63,7 @@ const Newsletter = () => {
   };
 
   const getImageUrl = (url?: string) => {
-    if (!url) return 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=300&fit=crop';
-    if (url.startsWith('http')) return url;
-    return `${getServerBaseUrl()}${url}`;
+    return resolveAssetUrl(url) || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=300&fit=crop';
   };
 
   const trendingPosts = [...posts].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, 5);
@@ -69,7 +72,7 @@ const Newsletter = () => {
     <div className="min-h-screen bg-[#0b0e11]">
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-[#181a20] via-[#1e2329] to-[#181a20] border-b border-[#2b2f36]">
-        <div className="max-w-7xl mx-auto px-3 py-8">
+        <div className="px-3 py-8">
           <div className="flex items-center gap-2 text-sm text-gray-400 mb-4">
             <Link to="/" className="hover:text-[#fcd535] transition-colors">Ahabanza</Link>
             <ChevronRight className="w-4 h-4" />
@@ -87,7 +90,7 @@ const Newsletter = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-3 py-6">
+      <div className="px-3 py-6">
         {showAds && (
           <div className="mb-6 bg-[#181a20] rounded-lg overflow-hidden">
             <div className="p-2 border-b border-[#2b2f36]">

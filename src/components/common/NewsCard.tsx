@@ -69,7 +69,7 @@ const NewsCard = ({
     <article className={`bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 overflow-hidden ${cardClasses}`}>
       <Link to={`/article/${id}`} className={`block ${layout === 'horizontal' ? 'flex w-full' : ''}`}>
         {/* Image */}
-        <div className={`${imageClasses()} bg-gray-200 overflow-hidden`}><img src={image} alt={title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"/></div>
+        <div className={`${imageClasses()} bg-gray-200 overflow-hidden`}><img src={image} alt={title} loading="lazy" onError={(e) => { e.currentTarget.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&h=400&fit=crop'; }} className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"/></div>
         {/* Content */}
         <div className={`p-3 ${layout === 'horizontal' ? 'flex-1 flex flex-col justify-center' : ''}`}>
           <div className="flex items-center justify-between mb-1 sm:mb-0.5"><span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium sm:text-xxs ${getCategoryColor(category)}`}>{category}</span>{size === 'large' && (<div className="flex items-center text-xs text-gray-500 space-x-1 sm:text-xxs"><Clock size={10}/><span>{publishedAt}</span></div>)}</div>

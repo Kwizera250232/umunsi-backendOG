@@ -1,7 +1,8 @@
-import { Search, Menu, X, Calendar, Thermometer, Bell, User, ChevronDown, TrendingUp, Loader2, MoreHorizontal, LogOut, Settings, Sun, Moon, Crown } from 'lucide-react';
+import { Search, Menu, X, Calendar, Thermometer, Bell, User, ChevronDown, TrendingUp, Loader2, MoreHorizontal, LogOut, Settings, Sun, Moon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiClient, Category } from '../../services/api';
+import { readPersistedCategories } from '../../lib/siteBootstrap';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Header = () => {
@@ -12,12 +13,13 @@ const Header = () => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'day'>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return localStorage.getItem('umunsi_theme') === 'day' ? 'day' : 'dark';
+    if (typeof window === 'undefined') return 'day';
+    return localStorage.getItem('umunsi_theme') === 'dark' ? 'dark' : 'day';
   });
   const [searchQuery, setSearchQuery] = useState('');
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [categories, setCategories] = useState<Category[]>(() => readPersistedCategories() as Category[]);
+  const [loading, setLoading] = useState(() => readPersistedCategories().length === 0);
+  const [categoriesFetchDone, setCategoriesFetchDone] = useState(() => readPersistedCategories().length > 0);
 
   useEffect(() => {
     fetchCategories();
@@ -30,7 +32,7 @@ const Header = () => {
 
   const fetchCategories = async () => {
     try {
-      setLoading(true);
+      if (categories.length === 0) setLoading(true);
       // Fetch only active categories from database
       const response = await apiClient.getCategories({ includeInactive: false });
       if (response && Array.isArray(response)) {
@@ -40,9 +42,10 @@ const Header = () => {
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
-      setCategories([]);
+      setCategories((prev) => (prev.length > 0 ? prev : []));
     } finally {
       setLoading(false);
+      setCategoriesFetchDone(true);
     }
   };
 
@@ -67,7 +70,7 @@ const Header = () => {
     <header className="bg-[#0b0e11] sticky top-0 z-50 border-b border-[#2b2f36]">
       {/* Top Bar - Breaking News / Trending */}
       <div className="bg-gradient-to-r from-[#181a20] via-[#1e2329] to-[#181a20] border-b border-[#2b2f36]">
-        <div className="max-w-7xl mx-auto px-4 py-2">
+        <div className="w-full px-4 py-2">
           <div className="flex items-center justify-between text-xs">
             <div className="flex items-center space-x-4">
               {/* Date & Weather */}
@@ -76,8 +79,8 @@ const Header = () => {
                   <Calendar size={14} className="text-[#fcd535]" />
                   <span>{new Date().toLocaleDateString('rw-RW', { weekday: 'short', month: 'short', day: 'numeric' })}</span>
                 </div>
-                <div className="h-3 w-px bg-[#2b2f36]"></div>
-                <div className="flex items-center space-x-1.5">
+                <div className="h-3 w-px bg-[#2b2f36] day-mode-muted"></div>
+                <div className="flex items-center space-x-1.5 day-mode-muted">
                   <Thermometer size={14} className="text-[#fcd535]" />
                   <span>22°C Kigali</span>
                 </div>
@@ -85,7 +88,7 @@ const Header = () => {
 
               {/* Categories count indicator */}
               {!loading && categories.length > 0 && (
-                <div className="hidden md:flex items-center space-x-2">
+                <div className="hidden md:flex items-center space-x-2 day-mode-muted">
                   <div className="h-3 w-px bg-[#2b2f36]"></div>
                   <TrendingUp size={14} className="text-[#fcd535]" />
                   <span className="text-gray-400">{categories.length} Categories</span>
@@ -104,15 +107,6 @@ const Header = () => {
                 {theme === 'day' ? <Moon size={14} /> : <Sun size={14} />}
                 <span className="hidden sm:inline">{theme === 'day' ? 'Night' : 'Day'}</span>
               </button>
-              <div className="h-3 w-px bg-[#2b2f36]"></div>
-
-              <Link 
-                to="/premium" 
-                className="flex items-center space-x-1.5 text-gray-400 hover:text-[#fcd535] transition-colors group"
-              >
-                <Crown size={14} className="text-[#fcd535]/70 group-hover:text-[#fcd535]" />
-                <span className="hidden sm:inline">Premium</span>
-              </Link>
               <div className="h-3 w-px bg-[#2b2f36]"></div>
 
               <Link 
@@ -147,29 +141,21 @@ const Header = () => {
                       </div>
                       <div className="py-1">
                         <Link 
-                          to="/profile" 
+                          to={user.role === 'USER' ? '/subscriber/account' : '/profile'} 
                           onClick={() => setIsUserMenuOpen(false)}
                           className="flex items-center space-x-2 px-3 py-2 text-gray-300 hover:bg-[#1e2329] hover:text-[#fcd535] transition-colors"
                         >
                           <User size={14} />
-                          <span>Profile</span>
+                          <span>{user.role === 'USER' ? "Konti y'Abafatabuguzi" : 'Profile'}</span>
                         </Link>
-                        <Link 
-                          to="/subscriber/account" 
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center space-x-2 px-3 py-2 text-gray-300 hover:bg-[#1e2329] hover:text-[#fcd535] transition-colors"
-                        >
-                          <Crown size={14} className="text-[#fcd535]" />
-                          <span>Premium Dashboard</span>
-                        </Link>
-                        {(user.role === 'ADMIN' || user.role === 'EDITOR') && (
+                        {(user.role === 'ADMIN' || user.role === 'EDITOR' || user.role === 'AUTHOR') && (
                           <Link 
                             to="/admin" 
                             onClick={() => setIsUserMenuOpen(false)}
                             className="flex items-center space-x-2 px-3 py-2 text-gray-300 hover:bg-[#1e2329] hover:text-[#fcd535] transition-colors"
                           >
                             <Settings size={14} />
-                            <span>Admin Dashboard</span>
+                            <span>{user.role === 'AUTHOR' ? 'Author Dashboard' : 'Admin Dashboard'}</span>
                           </Link>
                         )}
                         <button 
@@ -185,11 +171,11 @@ const Header = () => {
                 </div>
               ) : (
                 <Link 
-                  to="/login" 
+                  to="/subscriber-login" 
                   className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-[#fcd535] to-[#f0b90b] text-[#0b0e11] font-semibold rounded-lg hover:from-[#f0b90b] hover:to-[#fcd535] transition-all transform hover:scale-105"
                 >
                   <User size={14} />
-                  <span>Kwinjira</span>
+                  <span>Premium</span>
                 </Link>
               )}
             </div>
@@ -198,25 +184,31 @@ const Header = () => {
       </div>
 
       {/* Main Header */}
-      <div className="max-w-7xl mx-auto px-4 py-3">
+      <div className="w-full px-4 py-3">
         <div className="flex items-center justify-between">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="relative">
               <div className="absolute -inset-2 bg-gradient-to-r from-[#fcd535]/20 to-[#f0b90b]/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <img src="/images/logo.png" alt="Umunsi Logo" className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover relative" />
+              <img src="/images/logo.png" alt="Umunsi.com Logo" className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover relative" />
             </div>
           </Link>
 
           {/* Desktop Navigation - All active categories from database */}
           <nav className="hidden lg:flex items-center space-x-1">
             {loading ? (
-              <div className="flex items-center space-x-2 px-4 py-2 text-gray-400">
-                <Loader2 size={16} className="animate-spin" />
-                <span className="text-sm">Loading categories...</span>
+              <div className="px-4 py-2 text-gray-500 text-sm flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Categories zirakurura...
               </div>
             ) : categories.length === 0 ? (
-              <div className="px-4 py-2 text-gray-500 text-sm">No categories available</div>
+              <button
+                type="button"
+                onClick={fetchCategories}
+                className="px-4 py-2 text-gray-500 text-sm hover:text-[#fcd535]"
+              >
+                Ongera ugerageze categories
+              </button>
             ) : (
               <>
                 {/* Visible categories */}
@@ -333,12 +325,18 @@ const Header = () => {
           <div className="lg:hidden mt-4 pb-4">
             <nav className="space-y-1 max-h-[60vh] overflow-y-auto">
               {loading ? (
-                <div className="flex items-center justify-center py-4 text-gray-400">
-                  <Loader2 size={20} className="animate-spin mr-2" />
-                  <span>Loading categories...</span>
+                <div className="text-center py-4 text-gray-500 flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Categories zirakurura...
                 </div>
               ) : categories.length === 0 ? (
-                <div className="text-center py-4 text-gray-500">No categories available</div>
+                <button
+                  type="button"
+                  onClick={fetchCategories}
+                  className="w-full text-center py-4 text-gray-500 hover:text-[#fcd535]"
+                >
+                  Ongera ugerageze categories
+                </button>
               ) : (
                 <>
                   <div className="px-4 py-2 text-xs text-gray-500 uppercase tracking-wider">
