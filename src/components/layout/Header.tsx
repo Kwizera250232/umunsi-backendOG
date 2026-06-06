@@ -190,7 +190,7 @@ const Header = () => {
           <Link to="/" className="flex items-center space-x-3 group">
             <div className="relative">
               <div className="absolute -inset-2 bg-gradient-to-r from-[#fcd535]/20 to-[#f0b90b]/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <img src="/images/logo.png" alt="Umunsi.com Logo" className="h-10 w-10 md:h-12 md:w-12 rounded-full object-cover relative" />
+              <img src="/images/logo.png" alt="Umunsi.com Logo" className="h-10 md:h-12 relative" />
             </div>
           </Link>
 

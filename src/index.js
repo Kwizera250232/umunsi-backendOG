@@ -52,7 +52,7 @@ const buildMetaTags = (req, post) => {
   const safeTitle = escapeHtml(post.metaTitle || post.title || 'Umunsi Website');
   const descriptionSource = post.metaDescription || post.excerpt || stripHtml(post.content || '');
   const safeDescription = escapeHtml((descriptionSource || '').slice(0, 280));
-  const imageUrl = buildAbsoluteUrl(req, post.featuredImage || '/images/logo.png');
+  const imageUrl = buildAbsoluteUrl(req, post.featuredImage || '/images/site-logo.png');
   const safeImageUrl = escapeHtml(imageUrl);
   const safeImageType = escapeHtml(post.featuredImage && post.featuredImage.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg');
   const canonicalUrl = `${req.protocol}://${req.get('host')}${req.originalUrl}`;
