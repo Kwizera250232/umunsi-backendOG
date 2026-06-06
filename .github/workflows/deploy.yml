@@ -3,12 +3,6 @@ name: Deploy backend to Hostinger
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - 'src/pages/**'
-      - 'src/components/**'
-      - 'index.html'
-      - 'vercel.json'
-      - 'vite.config.ts'
   workflow_dispatch:
 
 jobs:
@@ -26,12 +20,7 @@ jobs:
           command_timeout: 10m
           script_stop: false
           script: |
-            cd /home/umunsi/backend-api
-            git pull origin main
-            npm install --production --omit=dev
-            npx prisma generate
-            pm2 restart umunsi-backend 2>/dev/null || pm2 start ecosystem.config.js --env production
-            pm2 save
-            echo "Backend deploy complete"
+            bash /home/umunsi/backend-api/scripts/deploy-production.sh
 
-# Frontend deploys from https://github.com/Kwizera250232/umunsi-frontend via Vercel
+# Frontend on umunsi.com is built from this repo and served from backend-api/public.
+# Vercel frontend: https://github.com/Kwizera250232/umunsi-frontend
