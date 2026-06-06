@@ -1,15 +1,35 @@
 {
+  "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install",
-  "framework": "vite",
-  "rewrites": [
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
-  ],
   "env": {
     "VITE_API_URL": "https://umunsi.com/api"
-  }
+  },
+  "rewrites": [
+    {
+      "source": "/post/(.*)",
+      "destination": "/api/meta?slug=$1"
+    },
+    {
+      "source": "/article/(.*)",
+      "destination": "/api/meta?id=$1"
+    },
+    {
+      "source": "/api",
+      "destination": "/api/proxy"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/proxy?path=$1"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "/api/proxy?path=uploads/$1"
+    },
+    {
+      "source": "/((?!api|uploads|assets|images|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
 }
