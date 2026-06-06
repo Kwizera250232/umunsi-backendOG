@@ -187,6 +187,54 @@ export interface Post {
     slug: string;
     color?: string;
   };
+  isLocked?: boolean;
+  isPremium?: boolean;
+}
+
+export interface PremiumDashboardPost {
+  id: string;
+  title: string;
+  slug: string;
+  featuredImage?: string;
+  publishedAt?: string;
+  createdAt: string;
+  hasAccess: boolean;
+  category?: {
+    id: string;
+    name: string;
+    slug: string;
+    color?: string;
+  };
+  author?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    username: string;
+    avatar?: string;
+  };
+}
+
+export interface PaymentRecord {
+  id: string;
+  provider: string;
+  purpose: string;
+  amount: number;
+  currency: string;
+  status: string;
+  txRef: string;
+  paidAt?: string;
+  createdAt: string;
+}
+
+export interface PaymentProfile {
+  user: {
+    id: string;
+    email: string;
+    isPremium: boolean;
+    premiumSince?: string;
+    premiumUntil?: string;
+  };
+  payments: PaymentRecord[];
 }
 
 // Analytics Types
@@ -793,6 +841,47 @@ class ApiClient {
       method: 'DELETE',
       body: JSON.stringify({ ids }),
     });
+  }
+
+  async getPremiumDashboard(): Promise<{ success: boolean; data: PremiumDashboardPost[] }> {
+    return this.request('/posts/premium-dashboard');
+  }
+
+  async getPaymentProfile(): Promise<{ success: boolean; data: PaymentProfile }> {
+    return this.request('/payments/me');
+  }
+
+  async initializeKPayPayment(payload: {
+    amount?: number;
+    pmethod?: string;
+    msisdn?: string;
+  }): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      paymentId: string;
+      txRef: string;
+      amount: number;
+      currency: string;
+      checkoutUrl?: string;
+      premium?: { isPremium: boolean; premiumUntil?: string };
+    };
+  }> {
+    return this.request('/payments/kpay/initialize', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async verifyKPayPayment(txRef: string): Promise<{
+    success: boolean;
+    message: string;
+    data: {
+      payment: PaymentRecord;
+      premium?: { isPremium: boolean; premiumUntil?: string };
+    };
+  }> {
+    return this.request(`/payments/kpay/verify/${encodeURIComponent(txRef)}`);
   }
 
   async getPostStats(): Promise<{

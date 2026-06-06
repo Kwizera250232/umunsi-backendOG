@@ -17,10 +17,13 @@ import {
   Linkedin,
   Link2,
   Check,
-  ArrowLeft
+  Lock,
+  Crown
 } from 'lucide-react';
 import { apiClient, Post } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import ArticleMidAd from '../components/ads/ArticleMidAd';
+import { splitHtmlAfterParagraphs } from '../utils/articleContent';
 
 const getServerBaseUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
@@ -140,6 +143,8 @@ const PostPage = () => {
   }, [postIdentifier]);
 
   const normalizedContent = normalizeArticleHtml(post?.content);
+  const contentSegments = showAds ? splitHtmlAfterParagraphs(normalizedContent, 3) : [normalizedContent];
+  const showMidArticleAd = showAds && contentSegments.length > 1;
   const fallbackFeaturedImage = extractFirstImageFromHtml(normalizedContent);
   const effectiveFeaturedImage = post?.featuredImage || fallbackFeaturedImage || '';
 
@@ -443,17 +448,65 @@ const PostPage = () => {
 
               {/* Article Content */}
               <div className="p-4">
-                {post.excerpt && (
+                {post.excerpt && !post.isLocked && (
                   <p className="text-gray-300 text-lg leading-relaxed mb-6 font-medium border-l-4 border-[#fcd535] pl-4">
                     {post.excerpt}
                   </p>
                 )}
 
-                <div 
-                  className="article-content-readable prose prose-invert prose-lg max-w-none text-gray-300"
-                  style={{ wordBreak: 'break-word' }}
-                  dangerouslySetInnerHTML={{ __html: normalizedContent }}
-                />
+                {post.isLocked ? (
+                  <div className="relative">
+                    <div className="blur-sm select-none pointer-events-none opacity-60">
+                      <div
+                        className="article-content-readable prose prose-invert prose-lg max-w-none text-gray-300"
+                        style={{ wordBreak: 'break-word' }}
+                        dangerouslySetInnerHTML={{
+                          __html: '<p>Iyi nkuru iri mu rwego rwa Premium. Injira cyangwa wishyure kugira ngo usome ibyanditswe byose...</p><p>Amakuru yihariye, ubushakashatsi bukomeye, n\'ibisobanuro byimbitse byateguwe n\'abanyamakuru bacu.</p><p>Support Umunsi kugira ngo dukomeze gutanga amakuru y\'ukuri y\'igihe.</p>'
+                        }}
+                      />
+                    </div>
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-t from-[#181a20] via-[#181a20]/95 to-transparent">
+                      <div className="text-center px-6 py-8 max-w-md">
+                        <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-[#fcd535] to-[#f0b90b] flex items-center justify-center">
+                          <Crown className="w-8 h-8 text-[#0b0e11]" />
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Inkuru ya Premium</h3>
+                        <p className="text-gray-400 text-sm mb-6 leading-relaxed">
+                          Iyi nkuru iri mu rwego rwa Premium. Dutera inkunga ya 500 RWF/kwezi kugira ngo usome amakuru yihariye n\'ibyanditswe byimbitse.
+                        </p>
+                        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                          <Link
+                            to="/subscriber/account"
+                            className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-[#fcd535] to-[#f0b90b] text-[#0b0e11] font-bold rounded-xl hover:from-[#f0b90b] hover:to-[#fcd535] transition-all"
+                          >
+                            <Crown className="w-4 h-4" />
+                            Fungura Premium
+                          </Link>
+                          {!isAuthenticated && (
+                            <Link
+                              to="/login"
+                              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#2b2f36] text-white font-medium rounded-xl hover:bg-[#363a45] transition-all"
+                            >
+                              <Lock className="w-4 h-4" />
+                              Injira
+                            </Link>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div
+                    className="article-content-readable prose prose-invert prose-lg max-w-none text-gray-300"
+                    style={{ wordBreak: 'break-word' }}
+                  >
+                    <div dangerouslySetInnerHTML={{ __html: contentSegments[0] }} />
+                    {showMidArticleAd && <ArticleMidAd />}
+                    {contentSegments[1] && (
+                      <div dangerouslySetInnerHTML={{ __html: contentSegments[1] }} />
+                    )}
+                  </div>
+                )}
 
                 {/* Tags */}
                 {post.tags && post.tags.length > 0 && (

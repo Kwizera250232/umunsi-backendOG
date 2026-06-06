@@ -64,6 +64,9 @@ const authUserSelect = {
   lastName: true,
   role: true,
   isActive: true,
+  isPremium: true,
+  premiumSince: true,
+  premiumUntil: true,
   avatar: true,
   createdAt: true,
   updatedAt: true
@@ -77,7 +80,11 @@ const profileUserSelect = {
   lastName: true,
   role: true,
   isActive: true,
+  isPremium: true,
+  premiumSince: true,
+  premiumUntil: true,
   avatar: true,
+  bio: true,
   createdAt: true,
   updatedAt: true,
   _count: {

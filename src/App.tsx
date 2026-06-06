@@ -12,6 +12,7 @@ import Newsletter from './pages/Newsletter';
 import Login from './pages/Login';
 import TestLogin from './pages/TestLogin';
 import Profile from './pages/Profile';
+import PremiumDashboard from './pages/PremiumDashboard';
 import AdminLayout from './components/layout/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import Articles from './pages/admin/Articles';
@@ -53,6 +54,7 @@ const ProtectedPostDetail = withEditor(PostDetail);
 const ProtectedRoles = withAdmin(Roles);
 const ProtectedAdsManagement = withEditor(AdsManagement);
 const ProtectedProfile = withAuth(Profile);
+const ProtectedPremiumDashboard = withAuth(PremiumDashboard);
 
 function App() {
   return (
@@ -85,6 +87,8 @@ function App() {
                  <Route path="/:year/:month/:day/:slug" element={<PostPage />} />
                 <Route path="/newsletter" element={<Newsletter />} />
                 <Route path="/profile" element={<ProtectedProfile />} />
+                <Route path="/subscriber/account" element={<ProtectedPremiumDashboard />} />
+                <Route path="/premium" element={<ProtectedPremiumDashboard />} />
               </Routes>
             </Layout>
           } />

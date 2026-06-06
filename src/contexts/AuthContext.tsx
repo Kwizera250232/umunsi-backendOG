@@ -11,6 +11,9 @@ interface User {
   role: 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER';
   avatar?: string;
   isActive: boolean;
+  isPremium?: boolean;
+  premiumSince?: string | null;
+  premiumUntil?: string | null;
   lastLogin?: string;
 }
 
@@ -157,17 +160,19 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshUser = async () => {
     try {
       const token = localStorage.getItem('umunsi_token');
-      if (token) {
-        apiClient.setToken(token);
-        // You can add an API endpoint to refresh user data if needed
-        // For now, we'll use the stored user data
-      } else {
-          // Ensure API client has no token
-          apiClient.clearToken();
-        }
+      if (!token) {
+        apiClient.clearToken();
+        return;
+      }
+
+      apiClient.setToken(token);
+      const response = await apiClient.getProfile();
+      if (response.success && response.user) {
+        setUser(response.user as User);
+        localStorage.setItem('umunsi_user', JSON.stringify(response.user));
+      }
     } catch (error) {
       console.error('Error refreshing user:', error);
-      logout();
     }
   };
 

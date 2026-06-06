@@ -1,4 +1,4 @@
-import { Search, Menu, X, Calendar, Thermometer, Bell, User, ChevronDown, TrendingUp, Loader2, MoreHorizontal, LogOut, Settings, Sun, Moon } from 'lucide-react';
+import { Search, Menu, X, Calendar, Thermometer, Bell, User, ChevronDown, TrendingUp, Loader2, MoreHorizontal, LogOut, Settings, Sun, Moon, Crown } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { apiClient, Category } from '../../services/api';
@@ -107,6 +107,15 @@ const Header = () => {
               <div className="h-3 w-px bg-[#2b2f36]"></div>
 
               <Link 
+                to="/premium" 
+                className="flex items-center space-x-1.5 text-gray-400 hover:text-[#fcd535] transition-colors group"
+              >
+                <Crown size={14} className="text-[#fcd535]/70 group-hover:text-[#fcd535]" />
+                <span className="hidden sm:inline">Premium</span>
+              </Link>
+              <div className="h-3 w-px bg-[#2b2f36]"></div>
+
+              <Link 
                 to="/newsletter" 
                 className="flex items-center space-x-1.5 text-gray-400 hover:text-[#fcd535] transition-colors group"
               >
@@ -144,6 +153,14 @@ const Header = () => {
                         >
                           <User size={14} />
                           <span>Profile</span>
+                        </Link>
+                        <Link 
+                          to="/subscriber/account" 
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center space-x-2 px-3 py-2 text-gray-300 hover:bg-[#1e2329] hover:text-[#fcd535] transition-colors"
+                        >
+                          <Crown size={14} className="text-[#fcd535]" />
+                          <span>Premium Dashboard</span>
                         </Link>
                         {(user.role === 'ADMIN' || user.role === 'EDITOR') && (
                           <Link 
