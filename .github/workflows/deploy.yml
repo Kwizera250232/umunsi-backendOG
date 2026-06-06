@@ -1,8 +1,14 @@
-name: Deploy to Hostinger and Vercel
+name: Deploy backend to Hostinger
 
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'src/pages/**'
+      - 'src/components/**'
+      - 'index.html'
+      - 'vercel.json'
+      - 'vite.config.ts'
   workflow_dispatch:
 
 jobs:
@@ -28,31 +34,4 @@ jobs:
             pm2 save
             echo "Backend deploy complete"
 
-  deploy-vercel:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-        env:
-          VITE_API_URL: https://umunsi.com/api
-
-      - name: Deploy to Vercel
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod'
-          working-directory: ./
+# Frontend deploys from https://github.com/Kwizera250232/umunsi-frontend via Vercel
