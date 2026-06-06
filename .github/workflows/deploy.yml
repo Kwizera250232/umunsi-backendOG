@@ -1,13 +1,15 @@
-name: Deploy to Hostinger
+name: Deploy to Hostinger and Vercel
 
 on:
-  workflow_dispatch:  # manual only — auto-deploy handled by webhook server
+  push:
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
-  deploy:
+  deploy-server:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy via SSH
+      - name: Deploy backend via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: 93.127.186.217
@@ -21,6 +23,36 @@ jobs:
             cd /home/umunsi/htdocs/umunsi.com
             git pull origin main
             npm install --production --omit=dev
+            npx prisma generate
             pm2 restart umunsi-backend 2>/dev/null || pm2 start ecosystem.config.js --env production
             pm2 save
-            echo "Deploy complete"
+            echo "Backend deploy complete"
+
+  deploy-vercel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+        env:
+          VITE_API_URL: https://umunsi.com/api
+
+      - name: Deploy to Vercel
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod'
+          working-directory: ./
