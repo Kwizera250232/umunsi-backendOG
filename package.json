@@ -9,6 +9,7 @@
     "dev:frontend": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "vercel-build": "vite build",
     "server": "node start-server.js",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
