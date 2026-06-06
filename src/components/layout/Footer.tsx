@@ -30,7 +30,7 @@ const Footer = () => {
             <Link to="/" className="inline-block mb-4 group">
               <div className="relative">
                 <div className="absolute -inset-2 bg-gradient-to-r from-[#fcd535]/20 to-[#f0b90b]/20 rounded-xl blur-lg opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                <img src="/images/logo.png" alt="Umunsi Logo" className="h-10 relative" />
+                <img src="/images/logo.png" alt="Umunsi Logo" className="h-10 w-10 rounded-full object-cover relative" />
               </div>
             </Link>
             <p className="text-gray-400 text-sm mb-4 leading-relaxed">
