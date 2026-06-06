@@ -20,7 +20,7 @@ jobs:
           command_timeout: 10m
           script_stop: false
           script: |
-            cd /home/umunsi/htdocs/umunsi.com
+            cd /home/umunsi/backend-api
             git pull origin main
             npm install --production --omit=dev
             npx prisma generate
