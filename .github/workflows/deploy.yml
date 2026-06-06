@@ -21,11 +21,7 @@ jobs:
           command_timeout: 10m
           script_stop: false
           script: |
-            cd /home/umunsi/backend-api
-            git pull origin main
-            npm install --production --omit=dev
-            npx prisma generate
-            bash scripts/server-restart.sh
+            bash /home/umunsi/backend-api/scripts/server-update.sh
 
 # Frontend on umunsi.com is built from this repo and served from backend-api/public.
 # Vercel frontend: https://github.com/Kwizera250232/umunsi-frontend
