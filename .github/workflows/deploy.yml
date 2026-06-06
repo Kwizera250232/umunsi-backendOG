@@ -15,12 +15,17 @@ jobs:
           host: 93.127.186.217
           username: root
           password: ${{ secrets.SSH_PASSWORD }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           timeout: 60s
           command_timeout: 10m
           script_stop: false
           script: |
-            bash /home/umunsi/backend-api/scripts/deploy-production.sh
+            cd /home/umunsi/backend-api
+            git pull origin main
+            npm install --production --omit=dev
+            npx prisma generate
+            bash scripts/server-restart.sh
 
 # Frontend on umunsi.com is built from this repo and served from backend-api/public.
 # Vercel frontend: https://github.com/Kwizera250232/umunsi-frontend
