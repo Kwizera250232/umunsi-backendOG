@@ -7,9 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AdSenseUnit from '../components/ads/AdSenseUnit';
 import { ADSENSE_SLOTS } from '../constants/adsense';
 import MostReadSidebarSlide from '../components/home/MostReadSidebarSlide';
-import SidebarBannerSlide from '../components/home/SidebarBannerSlide';
 import WorldCupUpdatesBar from '../components/home/WorldCupUpdatesBar';
-import HomeAppPromoSlide from '../components/home/HomeAppPromoSlide';
 
 type SpecialCategoryKey = 'cyamunara' | 'akazi';
 
@@ -434,13 +432,6 @@ const Home = () => {
       <WorldCupUpdatesBar />
 
       <div className="w-full px-3 py-4">
-        <HomeAppPromoSlide
-          showAds={showAds}
-          adsBanners={adsBanners}
-          hasBannerContent={hasBannerContent}
-          renderBanner={renderBannerSlot}
-        />
-
         {/* First Section - Inkuru Nyamukuru */}
         <div className="mb-6 rounded-lg overflow-hidden border border-[#2b2f36] bg-[#181a20]">
           <div className="bg-emerald-700 text-white px-4 py-2">
@@ -479,7 +470,7 @@ const Home = () => {
                 </Link>
               )}
 
-              {showAds && adsBanners?.slots?.adminSidebar240x320?.enabled && adsBanners.slots.adminSidebar240x320.imageUrl && (
+              {showAds && hasBannerContent('adminSidebar240x320') && (
                 <div className="bg-[#0b0e11] rounded p-2 flex justify-center">
                   {renderBannerSlot('adminSidebar240x320', 'Home Left Banner', 'w-full max-w-[320px] aspect-[4/3] rounded-lg overflow-hidden bg-[#0b0e11]')}
                 </div>
@@ -868,12 +859,16 @@ const Home = () => {
               formatDate={formatDate}
             />
 
-            <SidebarBannerSlide
-              showAds={showAds}
-              adsBanners={adsBanners}
-              hasBannerContent={hasBannerContent}
-              renderBanner={renderBannerSlot}
-            />
+            {showAds && hasBannerContent('sidebar300x250') && (
+              <div className="bg-[#181a20] rounded-lg overflow-hidden">
+                <div className="p-2 border-b border-[#2b2f36]">
+                  <p className="text-gray-500 text-[10px] text-center uppercase tracking-wider">Kwamamaza</p>
+                </div>
+                <div className="p-3">
+                  {renderBannerSlot('sidebar300x250', '300 x 250 px', 'aspect-[300/250] rounded-lg overflow-hidden bg-[#0b0e11]')}
+                </div>
+              </div>
+            )}
 
             {/* Categories List */}
             <div className="bg-[#181a20] rounded-lg overflow-hidden">
@@ -900,6 +895,16 @@ const Home = () => {
               </div>
             </div>
 
+            {showAds && hasBannerContent('square300x300') && (
+              <div className="bg-[#181a20] rounded-lg overflow-hidden">
+                <div className="p-2 border-b border-[#2b2f36]">
+                  <p className="text-gray-500 text-[10px] text-center uppercase tracking-wider">Kwamamaza</p>
+                </div>
+                <div className="p-3">
+                  {renderBannerSlot('square300x300', '300 x 300 px', 'aspect-square rounded-lg overflow-hidden bg-[#0b0e11]')}
+                </div>
+              </div>
+            )}
 
             {/* Top Liked in Sidebar */}
             <div className="bg-[#181a20] rounded-lg overflow-hidden">
