@@ -1,6 +1,5 @@
-import http from 'node:http';
+import https from 'node:https';
 
-const BACKEND_IP = '93.127.186.217';
 const BACKEND_HOST = 'api.umunsi.com';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0 Safari/537.36';
 
@@ -22,10 +21,10 @@ async function readRawBody(req) {
 
 function proxyRequest({ method, path, headers, body }) {
   return new Promise((resolve, reject) => {
-    const upstream = http.request(
+    const upstream = https.request(
       {
-        hostname: BACKEND_IP,
-        port: 80,
+        hostname: BACKEND_HOST,
+        port: 443,
         method,
         path,
         headers,
@@ -68,7 +67,10 @@ export default async function handler(req, res) {
   const originalUrl = new URL(req.url || '/', 'https://www.umunsi.com');
   originalUrl.searchParams.delete('path');
   const search = originalUrl.searchParams.toString();
-  const targetPath = `/api${path ? `/${path}` : ''}${search ? `?${search}` : ''}`;
+  const isUpload = path.startsWith('uploads/');
+  const targetPath = isUpload
+    ? `/${path}${search ? `?${search}` : ''}`
+    : `/api${path ? `/${path}` : ''}${search ? `?${search}` : ''}`;
 
   try {
     const forwardedFor = req.headers['x-forwarded-for'];
