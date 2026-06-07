@@ -1,4 +1,5 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
@@ -9,10 +10,15 @@ import Entertainment from './pages/Entertainment';
 import CategoryPage from './pages/CategoryPage';
 import PostPage from './pages/PostPage';
 import Newsletter from './pages/Newsletter';
+import ClassifiedAds from './pages/ClassifiedAds';
 import Login from './pages/Login';
+import AdminLogin from './pages/AdminLogin';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import PremiumDashboard from './pages/PremiumDashboard';
+import Register from './pages/Register';
 import TestLogin from './pages/TestLogin';
 import Profile from './pages/Profile';
-import PremiumDashboard from './pages/PremiumDashboard';
 import AdminLayout from './components/layout/AdminLayout';
 import AdminDashboard from './pages/AdminDashboard';
 import Articles from './pages/admin/Articles';
@@ -32,10 +38,34 @@ import EditPost from './pages/admin/EditPost';
 import PostDetail from './pages/admin/PostDetail';
 import Roles from './pages/admin/Roles';
 import AdsManagement from './pages/admin/AdsManagement';
-import { withAuth, withAdmin, withEditor } from './contexts/AuthContext';
+import { useAuth, withAuth, withAdmin, withEditor, withAuthor } from './contexts/AuthContext';
+import AdSenseManager from './components/common/AdSenseManager';
+import AppErrorBoundary from './components/common/AppErrorBoundary';
+
+const GA_MEASUREMENT_ID = 'G-Q5B9VWGY87';
+
+declare global {
+  interface Window {
+    gtag?: (...args: unknown[]) => void;
+  }
+}
+
+const RouteAnalyticsTracker: React.FC = () => {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window.gtag === 'function') {
+      window.gtag('config', GA_MEASUREMENT_ID, {
+        page_path: `${location.pathname}${location.search}${location.hash}`,
+      });
+    }
+  }, [location]);
+
+  return null;
+};
 
 // Create wrapped components
-const ProtectedAdminDashboard = withEditor(AdminDashboard);
+const ProtectedAdminDashboard = withAuthor(AdminDashboard);
 const ProtectedArticles = withEditor(Articles);
 const ProtectedBreakingNews = withEditor(BreakingNews);
 const ProtectedFeaturedNews = withEditor(FeaturedNews);
@@ -47,22 +77,44 @@ const ProtectedLogs = withAdmin(Logs);
 const ProtectedSettings = withAdmin(Settings);
 const ProtectedMediaLibrary = withEditor(MediaLibrary);
 const ProtectedAddMedia = withEditor(AddMedia);
-const ProtectedPosts = withEditor(Posts);
-const ProtectedAddPost = withEditor(AddPost);
-const ProtectedEditPost = withEditor(EditPost);
-const ProtectedPostDetail = withEditor(PostDetail);
+const ProtectedPosts = withAuthor(Posts);
+const ProtectedAddPost = withAuthor(AddPost);
+const ProtectedEditPost = withAuthor(EditPost);
+const ProtectedPostDetail = withAuthor(PostDetail);
 const ProtectedRoles = withAdmin(Roles);
 const ProtectedAdsManagement = withEditor(AdsManagement);
 const ProtectedProfile = withAuth(Profile);
 const ProtectedPremiumDashboard = withAuth(PremiumDashboard);
 
+const AdminHomeRedirect: React.FC = () => {
+  const { user } = useAuth();
+
+  if (user?.role === 'AUTHOR') {
+    return <Navigate to="/admin/posts" replace />;
+  }
+
+  return <ProtectedAdminDashboard />;
+};
+
 function App() {
+  const secretAdminLoginPath = '/portal-auth-umunsi-admin-2026';
+
   return (
-    <AuthProvider>
+    <AppErrorBoundary>
+      <AuthProvider>
       <Router>
+        <RouteAnalyticsTracker />
+        <AdSenseManager />
         <Routes>
-          {/* Login route - standalone, no layout wrapper */}
-          <Route path="/login" element={<Login />} />
+          {/* Login routes - standalone, no layout wrapper */}
+          <Route path="/login" element={<Navigate to="/subscriber-login" replace />} />
+          <Route path="/subscriber-login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/author-signup" element={<Register />} />
+          <Route path="/admin-login" element={<AdminLogin />} />
+          <Route path={secretAdminLoginPath} element={<AdminLogin />} />
           {/* Test login page for debugging */}
           <Route path="/test-login" element={<TestLogin />} />
           
@@ -84,11 +136,12 @@ function App() {
                 <Route path="/category/:slug" element={<CategoryPage />} />
                 <Route path="/post/:slug" element={<PostPage />} />
                 <Route path="/article/:id" element={<PostPage />} />
-                 <Route path="/:year/:month/:day/:slug" element={<PostPage />} />
+                <Route path="/:year/:month/:day/:slug" element={<PostPage />} />
                 <Route path="/newsletter" element={<Newsletter />} />
+                <Route path="/amatangazo" element={<ClassifiedAds />} />
+                <Route path="/amatangazo/:category" element={<ClassifiedAds />} />
                 <Route path="/profile" element={<ProtectedProfile />} />
                 <Route path="/subscriber/account" element={<ProtectedPremiumDashboard />} />
-                <Route path="/premium" element={<ProtectedPremiumDashboard />} />
               </Routes>
             </Layout>
           } />
@@ -97,13 +150,14 @@ function App() {
           <Route path="/admin/*" element={
             <AdminLayout />
           }>
-            <Route index element={<ProtectedAdminDashboard />} />
+            <Route index element={<AdminHomeRedirect />} />
             <Route path="articles" element={<ProtectedArticles />} />
             <Route path="news" element={<ProtectedNews />} />
             <Route path="breaking-news" element={<ProtectedBreakingNews />} />
             <Route path="featured-news" element={<ProtectedFeaturedNews />} />
             <Route path="categories" element={<ProtectedCategories />} />
             <Route path="users" element={<ProtectedUsers />} />
+            <Route path="users/:id" element={<ProtectedUsers />} />
             <Route path="ads-management" element={<ProtectedAdsManagement />} />
             <Route path="roles" element={<ProtectedRoles />} />
             <Route path="analytics" element={<ProtectedAnalytics />} />
@@ -117,10 +171,12 @@ function App() {
             <Route path="posts/:id" element={<ProtectedPostDetail />} />
             {/* Test route to verify routing works */}
             <Route path="test" element={<div className="p-12 text-center text-green-600 font-bold">✅ Test Route Working!</div>} />
+            <Route path="*" element={<Navigate to="/admin" replace />} />
           </Route>
         </Routes>
       </Router>
-    </AuthProvider>
+      </AuthProvider>
+    </AppErrorBoundary>
   );
 }
 

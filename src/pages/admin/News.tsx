@@ -295,7 +295,7 @@ const News: React.FC = () => {
     <div className="min-h-screen bg-[#0b0e11]">
       {/* Header */}
       <div className="bg-[#181a20] border-b border-[#2b2f36]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <div className="p-2 bg-gradient-to-br from-purple-500/20 to-purple-600/20 rounded-xl">
@@ -325,7 +325,7 @@ const News: React.FC = () => {
 
       {/* Filters and Search */}
       <div className="bg-[#181a20] border-b border-[#2b2f36]">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col lg:flex-row gap-4 items-center">
             {/* Search */}
             <div className="flex-1 w-full lg:w-auto">
@@ -424,7 +424,7 @@ const News: React.FC = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-6">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <div className="w-8 h-8 border-2 border-[#fcd535]/20 border-t-[#fcd535] rounded-full animate-spin"></div>

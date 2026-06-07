@@ -53,7 +53,7 @@ const HeroSection = () => {
 
   return (
     <section className="bg-white py-6 lg:py-10">
-      <div className="max-w-7xl mx-auto px-4 md:px-6">
+      <div className="w-full px-4 md:px-6">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main Featured Article - Left Column */}
           <div className="lg:col-span-2">

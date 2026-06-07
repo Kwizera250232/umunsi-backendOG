@@ -32,7 +32,7 @@ const AdminLayout = () => {
 
   // Redirect to login if not authenticated
   if (!isAuthenticated && !hasStoredAuth) {
-    window.location.href = '/login';
+    window.location.href = '/admin-login';
     return null;
   }
 

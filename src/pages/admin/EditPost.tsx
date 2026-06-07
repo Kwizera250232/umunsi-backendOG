@@ -21,12 +21,15 @@ import {
   AlertCircle,
   Edit3
 } from 'lucide-react';
-import { apiClient, Category, MediaFile, Post } from '../../services/api';
+import { apiClient, Category, MediaFile, Post, resolveAssetUrl } from '../../services/api';
 import RichTextEditor from '../../components/RichTextEditor';
 import MediaLibraryModal from '../../components/MediaLibraryModal';
+import { useAuth } from '../../contexts/AuthContext';
 
 const EditPost: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAuthorOnly = user?.role === 'AUTHOR';
   const { id } = useParams<{ id: string }>();
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -38,6 +41,7 @@ const EditPost: React.FC = () => {
     excerpt: '',
     featuredImage: '',
     status: 'DRAFT' as 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED',
+    isPremium: false,
     categoryId: '',
     isFeatured: false,
     isPinned: false,
@@ -74,6 +78,7 @@ const EditPost: React.FC = () => {
         excerpt: postData.excerpt || '',
         featuredImage: featuredImageUrl,
         status: postData.status,
+        isPremium: Boolean(postData.isPremium),
         categoryId: postData.category?.id || '',
         isFeatured: postData.isFeatured,
         isPinned: postData.isPinned,
@@ -201,7 +206,8 @@ const EditPost: React.FC = () => {
         content: formData.content,
         excerpt: formData.excerpt || undefined,
         featuredImage: formData.featuredImage || undefined,
-        status: formData.status,
+        status: isAuthorOnly ? 'DRAFT' : formData.status,
+        isPremium: formData.isPremium,
         categoryId: formData.categoryId || undefined,
         isFeatured: formData.isFeatured,
         isPinned: formData.isPinned,
@@ -251,13 +257,9 @@ const EditPost: React.FC = () => {
 
   const handleFeaturedImageSelect = (media: MediaFile) => {
     setSelectedFeaturedImage(media);
-    const getServerBaseUrl = () => {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-      return apiUrl.replace('/api', '');
-    };
     setFormData(prev => ({
       ...prev,
-      featuredImage: `${getServerBaseUrl()}${media.url}`
+      featuredImage: media.url || ''
     }));
   };
 
@@ -319,7 +321,7 @@ const EditPost: React.FC = () => {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-white">Edit Article</h1>
-                  <p className="text-gray-400 mt-1">Update your news article</p>
+                  <p className="text-gray-400 mt-1">{isAuthorOnly ? 'Hindura inkuru yawe uyisubize muri Draft, admin ni we uyipubulisha.' : 'Update your news article'}</p>
                 </div>
               </div>
             </div>
@@ -344,7 +346,7 @@ const EditPost: React.FC = () => {
               ) : (
                 <Save className="w-4 h-4 mr-2" />
               )}
-              {loading ? 'Saving...' : 'Update Article'}
+              {loading ? 'Saving...' : isAuthorOnly ? 'Save Draft Changes' : 'Update Article'}
             </button>
           </div>
         </div>
@@ -448,7 +450,7 @@ const EditPost: React.FC = () => {
                   <div className="space-y-3">
                     <div className="relative">
                       <img
-                        src={`${import.meta.env.VITE_API_URL || ''}${selectedFeaturedImage.url}`}
+                        src={resolveAssetUrl(selectedFeaturedImage.url)}
                         alt="Featured image preview"
                         className="w-full h-48 object-cover rounded-xl border border-[#2b2f36]"
                         onError={(e) => {
@@ -518,12 +520,14 @@ const EditPost: React.FC = () => {
                   name="status"
                   value={formData.status}
                   onChange={handleInputChange}
+                  disabled={isAuthorOnly}
                   className="w-full px-3 py-2.5 bg-[#0b0e11] border border-[#2b2f36] rounded-xl focus:ring-2 focus:ring-[#fcd535]/50 focus:border-[#fcd535] text-white"
                 >
                   <option value="DRAFT">Draft</option>
-                  <option value="PUBLISHED">Published</option>
-                  <option value="ARCHIVED">Archived</option>
+                  {!isAuthorOnly && <option value="PUBLISHED">Published</option>}
+                  {!isAuthorOnly && <option value="ARCHIVED">Archived</option>}
                 </select>
+                {isAuthorOnly && <p className="mt-1 text-xs text-gray-500">Author account ishobora kubika Draft gusa. Admin ni we ukora approve/publish.</p>}
               </div>
 
               {/* Category */}
@@ -549,7 +553,19 @@ const EditPost: React.FC = () => {
 
               {/* Options */}
               <div className="space-y-3 pt-2">
-                <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
+                {!isAuthorOnly && <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
+                  <input
+                    type="checkbox"
+                    name="isPremium"
+                    checked={formData.isPremium}
+                    onChange={handleInputChange}
+                    className="w-4 h-4 text-[#fcd535] bg-[#0b0e11] border-[#2b2f36] rounded focus:ring-[#fcd535]"
+                  />
+                  <Lock className="w-4 h-4 ml-3 text-[#fcd535]" />
+                  <span className="ml-2 text-sm text-white">Premium Article (paywall)</span>
+                </label>}
+
+                {!isAuthorOnly && <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
                   <input
                     type="checkbox"
                     name="isFeatured"
@@ -559,9 +575,9 @@ const EditPost: React.FC = () => {
                   />
                   <Star className="w-4 h-4 ml-3 text-yellow-500" />
                   <span className="ml-2 text-sm text-gray-300">Featured Article</span>
-                </label>
+                </label>}
 
-                <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
+                {!isAuthorOnly && <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
                   <input
                     type="checkbox"
                     name="isPinned"
@@ -571,7 +587,7 @@ const EditPost: React.FC = () => {
                   />
                   <Pin className="w-4 h-4 ml-3 text-blue-500" />
                   <span className="ml-2 text-sm text-gray-300">Pinned Article</span>
-                </label>
+                </label>}
 
                 <label className="flex items-center p-3 bg-[#0b0e11] rounded-xl border border-[#2b2f36] cursor-pointer hover:border-[#fcd535]/50 transition-colors">
                   <input

@@ -16,7 +16,7 @@ const DIGEST_SEND_MINUTE = Number(process.env.WEEKLY_NEWS_SEND_MINUTE || 0);
 const CHECK_INTERVAL_MS = Number(process.env.WEEKLY_NEWS_CHECK_INTERVAL_MS || 60 * 1000);
 const SUPPORT_PHONE = '0791859465';
 const SUPPORT_WHATSAPP = '250791859465';
-const DEFAULT_IMAGE = 'https://umunsi.com/images/logo.png';
+const DEFAULT_IMAGE = 'https://umunsi.com/images/site-logo.png';
 
 let schedulerStarted = false;
 let intervalHandle = null;
