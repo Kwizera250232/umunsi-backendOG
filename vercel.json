@@ -4,7 +4,7 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "env": {
-    "VITE_API_URL": "https://umunsi.com/api"
+    "VITE_API_URL": "/api"
   },
   "rewrites": [
     {

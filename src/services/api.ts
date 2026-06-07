@@ -1,5 +1,23 @@
-// API Base Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://umunsi.com/api' : 'http://localhost:5000/api');
+// API Base Configuration — production must never fall back to localhost
+const resolveApiBaseUrl = () => {
+  if (import.meta.env.PROD) {
+    const configured = import.meta.env.VITE_API_URL?.trim();
+    if (configured && !configured.includes('localhost')) {
+      return configured.startsWith('/') ? configured : configured.replace(/\/$/, '');
+    }
+    return '/api';
+  }
+  return import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
+
+export const getServerBaseUrl = (): string => {
+  if (import.meta.env.DEV) {
+    return (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
+  }
+  return typeof window !== 'undefined' ? window.location.origin : 'https://www.umunsi.com';
+};
 
 // API Response Types
 export interface ApiResponse<T = any> {

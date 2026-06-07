@@ -12,8 +12,8 @@ const Header = () => {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [theme, setTheme] = useState<'dark' | 'day'>(() => {
-    if (typeof window === 'undefined') return 'dark';
-    return localStorage.getItem('umunsi_theme') === 'day' ? 'day' : 'dark';
+    if (typeof window === 'undefined') return 'day';
+    return localStorage.getItem('umunsi_theme') === 'dark' ? 'dark' : 'day';
   });
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<Category[]>([]);

@@ -1,15 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Eye, ChevronRight, Loader2, Heart, TrendingUp, Zap, AlertCircle, Mail, Calendar, MapPin, CloudSun, Send, ThumbsUp } from 'lucide-react';
-import { apiClient, Post, Category, AdsBannersState } from '../services/api';
+import { apiClient, Post, Category, AdsBannersState, getServerBaseUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-
-const getServerBaseUrl = () => {
-  if (import.meta.env.DEV) {
-    return (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace('/api', '');
-  }
-  return (import.meta.env.VITE_API_URL || '').replace('/api', '');
-};
 
 const Home = () => {
   const { user } = useAuth();
