@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { apiClient } from '../../services/api';
+import { apiClient, ClassifiedAd } from '../../services/api';
 import { 
   Users as UsersIcon, 
   UserPlus, 
@@ -23,7 +23,8 @@ import {
   Grid3X3,
   List,
   Sparkles,
-  BookOpen
+  BookOpen,
+  Megaphone
 } from 'lucide-react';
 
 interface User {
@@ -35,14 +36,18 @@ interface User {
   role: 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER';
   isActive: boolean;
   isVerified: boolean;
+  isPremium?: boolean;
+  premiumUntil?: string | null;
   lastLogin: string;
   createdAt: string;
   avatar?: string;
   phone?: string;
   bio?: string;
+  profileUrl?: string;
   permissions: string[];
   articleCount: number;
   commentCount: number;
+  adCount?: number;
 }
 
 const Users = () => {
@@ -65,10 +70,14 @@ const Users = () => {
     username: '',
     firstName: '',
     lastName: '',
+    profileUrl: '',
     role: 'USER' as 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER'
   });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [showUserAdsModal, setShowUserAdsModal] = useState(false);
+  const [userAdsOwner, setUserAdsOwner] = useState<User | null>(null);
+  const [userClassifiedAds, setUserClassifiedAds] = useState<ClassifiedAd[]>([]);
 
   useEffect(() => {
     fetchUsers();
@@ -77,7 +86,16 @@ const Users = () => {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.getUsers();
+      const [response, allAds] = await Promise.all([
+        apiClient.getUsers() as any,
+        apiClient.getAllClassifiedAds()
+      ]);
+
+      const adCountMap = allAds.reduce((acc, ad) => {
+        acc[ad.userId] = (acc[ad.userId] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
       if (response?.users) {
         const transformedUsers = response.users.map((user: unknown) => {
           const u = user as Record<string, unknown>;
@@ -85,6 +103,7 @@ const Users = () => {
             ...u,
             articleCount: ((u._count as Record<string, number>)?.news) || 0,
             commentCount: ((u._count as Record<string, number>)?.posts) || 0,
+            adCount: adCountMap[u.id as string] || 0,
             permissions: getPermissionsForRole(u.role as string)
           };
         });
@@ -96,6 +115,45 @@ const Users = () => {
       console.error('Error fetching users:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleOpenUserAds = async (user: User) => {
+    try {
+      const ads = await apiClient.getClassifiedAdsByUser(user.id);
+      setUserAdsOwner(user);
+      setUserClassifiedAds(ads);
+      setShowUserAdsModal(true);
+    } catch (error) {
+      console.error('Error loading user classifieds:', error);
+      alert('Ntibyashobotse kubona amatangazo ya user.');
+    }
+  };
+
+  const moderateUserAd = async (adId: string, status: 'APPROVED' | 'REJECTED') => {
+    try {
+      const note = status === 'REJECTED' ? window.prompt('Impamvu yo kwanga (optional):', '') || '' : 'Byemejwe';
+      await apiClient.updateClassifiedStatus(adId, status, note);
+      if (userAdsOwner) {
+        await handleOpenUserAds(userAdsOwner);
+      }
+    } catch (error) {
+      alert('Ntibyashobotse kuvugurura status y\'itangazo.');
+    }
+  };
+
+  const editUserAd = async (ad: ClassifiedAd) => {
+    const title = window.prompt('Hindura title:', ad.title);
+    if (!title) return;
+    const description = window.prompt('Hindura description:', ad.description);
+    if (!description) return;
+    try {
+      await apiClient.updateClassifiedAd(ad.id, { title, description });
+      if (userAdsOwner) {
+        await handleOpenUserAds(userAdsOwner);
+      }
+    } catch (error) {
+      alert('Ntibyashobotse guhindura itangazo.');
     }
   };
 
@@ -146,6 +204,100 @@ const Users = () => {
     }
   };
 
+  const handleSetPremium = async (user: User, grant: boolean) => {
+    try {
+      let premiumUntil: string | null = null;
+
+      if (grant) {
+        const input = window.prompt('Premium duration in days (leave empty for no expiry):', '30');
+        if (input && input.trim()) {
+          const days = Number(input);
+          if (Number.isNaN(days) || days <= 0) {
+            alert('Please enter a valid number of days.');
+            return;
+          }
+          const expiresAt = new Date();
+          expiresAt.setDate(expiresAt.getDate() + days);
+          premiumUntil = expiresAt.toISOString();
+        }
+      }
+
+      await apiClient.updateUser(user.id, {
+        isPremium: grant,
+        premiumUntil: grant ? premiumUntil : null
+      });
+
+      setUsers(prev => prev.map(u =>
+        u.id === user.id
+          ? { ...u, isPremium: grant, premiumUntil: grant ? premiumUntil : null }
+          : u
+      ));
+    } catch (error) {
+      console.error('Error updating premium status:', error);
+      alert('Failed to update premium status');
+    }
+  };
+
+  const handleGrantSpecificPremiumStory = async (user: User) => {
+    try {
+      const postKey = window.prompt('Enter Premium Story ID or slug to grant:');
+      if (!postKey || !postKey.trim()) return;
+
+      const post = await apiClient.getPost(postKey.trim());
+      if (!post?.id) {
+        alert('Post not found');
+        return;
+      }
+
+      if (!post.isPremium) {
+        alert('Selected post is not marked as Premium. Please mark it Premium first.');
+        return;
+      }
+
+      let expiresAt: string | null = null;
+      const daysInput = window.prompt('Optional access duration in days (leave empty for no expiry):', '');
+      if (daysInput && daysInput.trim()) {
+        const days = Number(daysInput.trim());
+        if (Number.isNaN(days) || days <= 0) {
+          alert('Please enter a valid number of days.');
+          return;
+        }
+        const until = new Date();
+        until.setDate(until.getDate() + days);
+        expiresAt = until.toISOString();
+      }
+
+      await apiClient.grantUserPremiumPostAccess(user.id, {
+        postId: post.id,
+        expiresAt
+      });
+
+      alert(`Granted "${post.title}" to ${user.firstName} ${user.lastName}.`);
+    } catch (error) {
+      console.error('Error granting specific premium story access:', error);
+      alert('Failed to grant story access');
+    }
+  };
+
+  const handleRevokeSpecificPremiumStory = async (user: User) => {
+    try {
+      const postKey = window.prompt('Enter Premium Story ID or slug to revoke:');
+      if (!postKey || !postKey.trim()) return;
+
+      const post = await apiClient.getPost(postKey.trim());
+      if (!post?.id) {
+        alert('Post not found');
+        return;
+      }
+
+      await apiClient.revokeUserPremiumPostAccess(user.id, post.id);
+      alert(`Revoked "${post.title}" from ${user.firstName} ${user.lastName}.`);
+    } catch (error) {
+      console.error('Error revoking specific premium story access:', error);
+      alert('Failed to revoke story access');
+    }
+  };
+
   const handleBulkAction = async (action: string) => {
     if (selectedUsers.length === 0) return;
 
@@ -178,6 +330,12 @@ const Users = () => {
     setSubmitting(true);
     setFormError('');
 
+    if (formData.role === 'AUTHOR' && !formData.profileUrl.trim()) {
+      setFormError('Author account requires URL ya account.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const response = await apiClient.createUser({
         email: formData.email,
@@ -185,6 +343,7 @@ const Users = () => {
         username: formData.username || formData.email.split('@')[0],
         firstName: formData.firstName,
         lastName: formData.lastName,
+        profileUrl: formData.profileUrl ? formData.profileUrl.trim() : undefined,
         role: formData.role
       });
       
@@ -208,10 +367,17 @@ const Users = () => {
     setSubmitting(true);
     setFormError('');
 
+    if (formData.role === 'AUTHOR' && !formData.profileUrl.trim()) {
+      setFormError('Author account requires URL ya account.');
+      setSubmitting(false);
+      return;
+    }
+
     try {
       const response = await apiClient.updateUser(editingUser.id, {
         firstName: formData.firstName,
         lastName: formData.lastName,
+        profileUrl: formData.profileUrl ? formData.profileUrl.trim() : null,
         role: formData.role,
         isActive: editingUser.isActive
       });
@@ -238,6 +404,7 @@ const Users = () => {
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
+      profileUrl: user.profileUrl || '',
       role: user.role
     });
     setShowEditModal(true);
@@ -250,6 +417,7 @@ const Users = () => {
       username: '',
       firstName: '',
       lastName: '',
+      profileUrl: '',
       role: 'USER'
     });
     setFormError('');
@@ -261,6 +429,11 @@ const Users = () => {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const formatPremiumUntil = (dateString?: string | null) => {
+    if (!dateString) return 'No expiry';
+    return formatDate(dateString);
   };
 
   const getRoleBadge = (role: string) => {
@@ -349,15 +522,6 @@ const Users = () => {
               <span>Export</span>
               </button>
             </div>
-                    {user.role === 'AUTHOR' && (
-                      <button
-                        onClick={() => handleToggleVerification(user)}
-                        className={`p-1.5 hover:bg-[#2b2f36] rounded-lg ${user.isVerified ? 'text-amber-400' : 'text-blue-400'}`}
-                        title={user.isVerified ? 'Remove Blue Tick' : 'Give Blue Tick'}
-                      >
-                        {user.isVerified ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                      </button>
-                    )}
           </div>
         </div>
 
@@ -540,6 +704,12 @@ const Users = () => {
                             {getStatusIcon(user.isActive, user.isVerified)}
                             <span>{getStatusText(user.isActive, user.isVerified)}</span>
                           </span>
+                        {user.isPremium && (
+                          <span className="px-2 py-0.5 text-xs font-medium rounded-md border bg-[#fcd535]/20 text-[#fcd535] border-[#fcd535]/30 flex items-center space-x-1">
+                            <Crown className="w-3.5 h-3.5" />
+                            <span>Premium</span>
+                          </span>
+                        )}
                         </div>
                         
                       <div className="flex items-center space-x-4 text-sm text-gray-500">
@@ -562,6 +732,8 @@ const Users = () => {
                       <div className="flex items-center space-x-4 text-xs text-gray-600">
                           <span>Articles: {user.articleCount}</span>
                           <span>Comments: {user.commentCount}</span>
+                          <span>Amatangazo: {user.adCount || 0}</span>
+                          {user.isPremium && <span>Premium until: {formatPremiumUntil(user.premiumUntil)}</span>}
                       </div>
                       </div>
                     </div>
@@ -575,6 +747,34 @@ const Users = () => {
                       className="p-2 text-gray-500 hover:text-blue-400 hover:bg-[#2b2f36] rounded-lg transition-colors"
                     >
                         <Edit className="w-4 h-4" />
+                      </button>
+                    <button
+                      onClick={() => handleOpenUserAds(user)}
+                      className="p-2 text-gray-500 hover:text-[#fcd535] hover:bg-[#2b2f36] rounded-lg transition-colors"
+                      title="View/Edit user classifieds"
+                    >
+                      <Megaphone className="w-4 h-4" />
+                    </button>
+                      <button
+                        onClick={() => handleSetPremium(user, !Boolean(user.isPremium))}
+                        className={`p-2 hover:bg-[#2b2f36] rounded-lg transition-colors ${user.isPremium ? 'text-[#fcd535]' : 'text-gray-500 hover:text-[#fcd535]'}`}
+                        title={user.isPremium ? 'Revoke Premium' : 'Grant Premium'}
+                      >
+                        <Crown className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleGrantSpecificPremiumStory(user)}
+                        className="p-2 text-gray-500 hover:text-emerald-400 hover:bg-[#2b2f36] rounded-lg transition-colors"
+                        title="Grant specific premium story"
+                      >
+                        <BookOpen className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleRevokeSpecificPremiumStory(user)}
+                        className="p-2 text-gray-500 hover:text-red-400 hover:bg-[#2b2f36] rounded-lg transition-colors"
+                        title="Revoke specific premium story"
+                      >
+                        <XCircle className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleToggleUserStatus(user.id, user.isActive)}
@@ -642,9 +842,19 @@ const Users = () => {
                       </span>
                     </div>
 
+                  {user.isPremium && (
+                    <div className="flex items-center justify-center">
+                      <span className="px-2 py-0.5 text-xs font-medium rounded-md border bg-[#fcd535]/20 text-[#fcd535] border-[#fcd535]/30 flex items-center space-x-1">
+                        <Crown className="w-3.5 h-3.5" />
+                        <span>Premium until {formatPremiumUntil(user.premiumUntil)}</span>
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span className="bg-[#2b2f36] px-2 py-1 rounded">Articles: {user.articleCount}</span>
                     <span className="bg-[#2b2f36] px-2 py-1 rounded">Comments: {user.commentCount}</span>
+                    <span className="bg-[#2b2f36] px-2 py-1 rounded">Ads: {user.adCount || 0}</span>
                   </div>
 
                   <p className="text-xs text-gray-600 text-center">Joined {formatDate(user.createdAt)}</p>
@@ -654,6 +864,37 @@ const Users = () => {
                   <div className="flex items-center space-x-1">
                     <button className="p-1.5 text-gray-500 hover:text-[#fcd535] hover:bg-[#2b2f36] rounded-lg"><Eye className="w-4 h-4" /></button>
                     <button onClick={() => openEditModal(user)} className="p-1.5 text-gray-500 hover:text-blue-400 hover:bg-[#2b2f36] rounded-lg"><Edit className="w-4 h-4" /></button>
+                    <button onClick={() => handleOpenUserAds(user)} className="p-1.5 text-gray-500 hover:text-[#fcd535] hover:bg-[#2b2f36] rounded-lg" title="View/Edit user classifieds"><Megaphone className="w-4 h-4" /></button>
+                    <button
+                      onClick={() => handleSetPremium(user, !Boolean(user.isPremium))}
+                      className={`p-1.5 hover:bg-[#2b2f36] rounded-lg ${user.isPremium ? 'text-[#fcd535]' : 'text-gray-500 hover:text-[#fcd535]'}`}
+                      title={user.isPremium ? 'Revoke Premium' : 'Grant Premium'}
+                    >
+                      <Crown className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleGrantSpecificPremiumStory(user)}
+                      className="p-1.5 text-gray-500 hover:text-emerald-400 hover:bg-[#2b2f36] rounded-lg"
+                      title="Grant specific premium story"
+                    >
+                      <BookOpen className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleRevokeSpecificPremiumStory(user)}
+                      className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-[#2b2f36] rounded-lg"
+                      title="Revoke specific premium story"
+                    >
+                      <XCircle className="w-4 h-4" />
+                    </button>
+                    {user.role === 'AUTHOR' && (
+                      <button
+                        onClick={() => handleToggleVerification(user)}
+                        className={`p-1.5 hover:bg-[#2b2f36] rounded-lg ${user.isVerified ? 'text-amber-400' : 'text-blue-400'}`}
+                        title={user.isVerified ? 'Remove Blue Tick' : 'Give Blue Tick'}
+                      >
+                        {user.isVerified ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                      </button>
+                    )}
                     <button onClick={() => handleDeleteUser(user.id)} className="p-1.5 text-gray-500 hover:text-red-400 hover:bg-[#2b2f36] rounded-lg"><Trash2 className="w-4 h-4" /></button>
                       </div>
                   <button className="p-1.5 text-gray-500 hover:text-white hover:bg-[#2b2f36] rounded-lg">
@@ -677,6 +918,35 @@ const Users = () => {
           </div>
         </div>
       </div>
+
+      {showUserAdsModal && userAdsOwner && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#181a20] rounded-2xl border border-[#2b2f36] w-full max-w-3xl max-h-[85vh] overflow-auto">
+            <div className="px-6 py-4 border-b border-[#2b2f36] flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Amatangazo ya {userAdsOwner.firstName} {userAdsOwner.lastName}</h3>
+              <button onClick={() => setShowUserAdsModal(false)} className="text-gray-400 hover:text-white"><XCircle className="w-5 h-5" /></button>
+            </div>
+            <div className="p-4 space-y-3">
+              {userClassifiedAds.length === 0 ? (
+                <p className="text-sm text-gray-400">Uyu user nta matangazo afite.</p>
+              ) : userClassifiedAds.map((ad) => (
+                <div key={ad.id} className="bg-[#0f1115] border border-[#2b2f36] rounded-lg p-3">
+                  <p className="text-white font-semibold">{ad.title}</p>
+                  <p className="text-xs text-gray-500 mt-1">{ad.phone} • {ad.email} • {new Date(ad.createdAt).toLocaleDateString()}</p>
+                  <p className="text-sm text-gray-300 mt-2">{ad.description}</p>
+                  <div className="flex gap-2 flex-wrap mt-3">
+                    <button onClick={() => moderateUserAd(ad.id, 'APPROVED')} className="px-3 py-1 rounded bg-emerald-600 text-white text-xs">Approve</button>
+                    <button onClick={() => moderateUserAd(ad.id, 'REJECTED')} className="px-3 py-1 rounded bg-rose-600 text-white text-xs">Reject</button>
+                    <button onClick={() => editUserAd(ad)} className="px-3 py-1 rounded bg-[#2b2f36] text-white text-xs">Edit</button>
+                    <a href={`tel:${ad.phone}`} className="px-3 py-1 rounded bg-[#1f2937] text-gray-100 text-xs">Call</a>
+                    <a href={`mailto:${ad.email}`} className="px-3 py-1 rounded bg-[#1f2937] text-gray-100 text-xs">Email</a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add User Modal */}
       {showAddModal && (
@@ -754,6 +1024,17 @@ const Users = () => {
                   <option value="EDITOR">Editor</option>
                   <option value="ADMIN">Admin</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Kora konte kuri umunsimedia.com ushyireho URL ya konte yawe hano</label>
+                <input
+                  type="url"
+                  value={formData.profileUrl}
+                  onChange={(e) => setFormData({ ...formData, profileUrl: e.target.value })}
+                  placeholder="https://www.umunsimedia.com/author-name"
+                  className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                />
               </div>
               
               <div className="flex items-center justify-end space-x-3 pt-4">
@@ -845,6 +1126,17 @@ const Users = () => {
                   <option value="EDITOR">Editor</option>
                   <option value="ADMIN">Admin</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">Kora konte kuri umunsimedia.com ushyireho URL ya konte yawe hano</label>
+                <input
+                  type="url"
+                  value={formData.profileUrl}
+                  onChange={(e) => setFormData({ ...formData, profileUrl: e.target.value })}
+                  placeholder="https://www.umunsimedia.com/author-name"
+                  className="w-full px-3 py-2.5 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white focus:outline-none focus:border-[#fcd535]/50"
+                />
               </div>
 
               <div className="flex items-center justify-between p-3 bg-[#2b2f36] rounded-xl">

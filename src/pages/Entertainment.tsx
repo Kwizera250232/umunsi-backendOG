@@ -51,7 +51,7 @@ const Entertainment = () => {
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-[#fcd535]/5 rounded-full blur-3xl"></div>
         </div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-16">
+        <div className="relative z-10 px-4 py-16">
           <div className="text-center">
             <div className="inline-flex items-center gap-2 bg-[#1e2329] border border-[#2b2f36] px-4 py-2 rounded-full mb-6">
               <Film className="w-5 h-5 text-purple-400" />
@@ -73,7 +73,7 @@ const Entertainment = () => {
       </div>
 
       {/* Category Cards */}
-      <div className="max-w-7xl mx-auto px-4 -mt-8 relative z-20">
+      <div className="px-4 -mt-8 relative z-20">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {entertainmentCategories.map((category) => (
             <div key={category.name} className="bg-[#181a20] rounded-2xl p-5 border border-[#2b2f36] hover:border-purple-500/30 transition-all duration-300 group cursor-pointer">
@@ -88,7 +88,7 @@ const Entertainment = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="px-4 py-12">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Content - Left */}
           <div className="lg:col-span-3 space-y-8">

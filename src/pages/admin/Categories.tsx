@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../services/api';
+
+const DEFAULT_EDITORIAL_CATEGORIES = [
+  { name: 'Inkuru Nyamukuru', description: 'Inkuru zatoranyijwe nk’izingenzi ku rubuga.' },
+  { name: 'Ubuzima', description: 'Inkuru zijyanye n’ubuzima n’imibereho myiza.' },
+  { name: "Inkuru z'Urukundo", description: 'Inkuru zijyanye n’urukundo n’imibanire.' }
+];
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   FolderOpen, 
@@ -64,14 +70,33 @@ const Categories = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [user?.role]);
 
   const fetchCategories = async () => {
     try {
       setLoading(true);
       setError(null);
-      // Include inactive categories for admin management
-      const response = await apiClient.getCategories({ includeInactive: true });
+      let response = await apiClient.getCategories({ includeInactive: true });
+
+      if (user?.role === 'ADMIN' && response && Array.isArray(response)) {
+        const existingNames = new Set(response.map(category => category.name.trim().toLowerCase()));
+        const missingCategories = DEFAULT_EDITORIAL_CATEGORIES.filter(
+          (category) => !existingNames.has(category.name.trim().toLowerCase())
+        );
+
+        if (missingCategories.length > 0) {
+          await Promise.all(
+            missingCategories.map((category) =>
+              apiClient.createCategory({
+                name: category.name,
+                description: category.description,
+                isActive: true,
+              }).catch(() => null)
+            )
+          );
+          response = await apiClient.getCategories({ includeInactive: true });
+        }
+      }
       
       if (response && Array.isArray(response)) {
         const transformedCategories = response.map(category => ({

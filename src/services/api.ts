@@ -1,5 +1,97 @@
+import { buildCacheKey, cachedRequest, invalidateCachePrefix } from '../lib/requestCache';
+
 // API Base Configuration
-const API_BASE_URL = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://umunsi.com/api' : 'http://localhost:5000/api');
+const PRIMARY_PROD_API_URL = '/api';
+const FALLBACK_PROD_API_URL = 'https://api.umunsi.com/api';
+
+const normalizeApiBaseUrl = (configuredUrl?: string) => {
+  const fallbackUrl = import.meta.env.PROD ? PRIMARY_PROD_API_URL : 'http://localhost:5000/api';
+
+  if (import.meta.env.PROD) {
+    return PRIMARY_PROD_API_URL;
+  }
+
+  const candidate = (configuredUrl || fallbackUrl).trim();
+
+  if (!candidate) return fallbackUrl;
+
+  try {
+    const parsed = new URL(candidate);
+    if (parsed.hostname === 'www.umunsi.com') {
+      parsed.hostname = 'umunsi.com';
+    }
+
+    const normalized = parsed.toString().replace(/\/$/, '');
+    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+  } catch {
+    const normalized = candidate
+      .replace(/^https:\/\/www\.umunsi\.com/i, 'https://umunsi.com')
+      .replace(/\/$/, '');
+
+    return normalized.endsWith('/api') ? normalized : `${normalized}/api`;
+  }
+};
+
+const API_BASE_URL = normalizeApiBaseUrl(import.meta.env.VITE_API_URL);
+
+export const getApiBaseUrl = () => API_BASE_URL;
+
+export const getServerBaseUrl = () =>
+  API_BASE_URL.replace(/\/api\/?$/, '') || (typeof window !== 'undefined' ? window.location.origin : 'https://www.umunsi.com');
+
+export const resolveAssetUrl = (url?: string | null) => {
+  if (!url) return '';
+
+  const rawValue = String(url).trim();
+  if (!rawValue) return '';
+
+  if (rawValue.startsWith('data:') || rawValue.startsWith('blob:')) return rawValue;
+  if (rawValue.startsWith('//')) return `https:${rawValue}`;
+
+  const serverBaseUrl = getServerBaseUrl();
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://www.umunsi.com';
+  const proxiedUploadsBase = `${currentOrigin}/api/uploads`;
+  const toProxiedUploadsUrl = (pathname: string, search = '', hash = '') => {
+    if (!pathname.startsWith('/uploads/')) return `${currentOrigin}${pathname}${search}${hash}`;
+    return `${proxiedUploadsBase}${pathname.replace(/^\/uploads/, '')}${search}${hash}`;
+  };
+
+  try {
+    const parsed = rawValue.startsWith('http://') || rawValue.startsWith('https://')
+      ? new URL(rawValue)
+      : new URL(rawValue.startsWith('/') ? rawValue : `/${rawValue.replace(/^\.?\//, '')}`, serverBaseUrl);
+
+    const host = parsed.hostname.toLowerCase();
+    const isLocalHost = host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0';
+    const isUmunsiHost = host === 'umunsi.com' || host === 'www.umunsi.com';
+
+    if ((isLocalHost || isUmunsiHost) && parsed.pathname.startsWith('/uploads/')) {
+      return toProxiedUploadsUrl(parsed.pathname, parsed.search, parsed.hash);
+    }
+
+    if (isLocalHost) {
+      return `${serverBaseUrl}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    }
+
+    return parsed.toString();
+  } catch {
+    if (rawValue.startsWith('/uploads/')) return toProxiedUploadsUrl(rawValue);
+    if (rawValue.startsWith('/')) return `${currentOrigin}${rawValue}`;
+    if (rawValue.startsWith('uploads/')) return `${proxiedUploadsBase}/${rawValue.replace(/^uploads\//, '')}`;
+    if (rawValue.startsWith('images/')) return `${currentOrigin}/${rawValue}`;
+    if (!rawValue.includes('/')) {
+      return toProxiedUploadsUrl(`/uploads/media/${rawValue}`);
+    }
+    return toProxiedUploadsUrl(`/uploads/${rawValue.replace(/^\.?\//, '')}`);
+  }
+};
+
+export const extractFirstImageFromHtml = (html?: string | null) => {
+  if (!html) return '';
+
+  const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+  return resolveAssetUrl(match?.[1]);
+};
 
 // API Response Types
 export interface ApiResponse<T = any> {
@@ -30,11 +122,14 @@ export interface LoginCredentials {
 }
 
 export interface RegisterData {
-  username: string;
+  username?: string;
   email: string;
   password: string;
   firstName: string;
   lastName: string;
+  profileUrl?: string;
+  role?: 'AUTHOR' | 'USER';
+  authorInviteKey?: string;
 }
 
 export interface AuthResponse {
@@ -47,10 +142,39 @@ export interface AuthResponse {
     firstName: string;
     lastName: string;
     role: string;
+    isPremium?: boolean;
+    premiumSince?: string;
+    premiumUntil?: string;
     isActive: boolean;
+    profileUrl?: string;
     lastLogin?: string;
   };
   token: string;
+}
+
+export interface ForgotPasswordPayload {
+  email: string;
+}
+
+export interface ResetPasswordPayload {
+  token: string;
+  email: string;
+  code: string;
+  password: string;
+}
+
+export interface ChangePasswordWithEmailPayload {
+  email: string;
+  oldPassword: string;
+  newPassword: string;
+}
+
+export interface PasswordFlowResponse {
+  success: boolean;
+  message: string;
+  resetLink?: string;
+  resetToken?: string;
+  debugCode?: string;
 }
 
 // News Types
@@ -115,10 +239,13 @@ export interface User {
   lastName: string;
   role: 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER';
   isActive: boolean;
-  isVerified?: boolean;
+  isVerified: boolean;
+  isPremium?: boolean;
+  premiumUntil?: string | null;
   avatar?: string;
   bio?: string;
   phone?: string;
+  profileUrl?: string;
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
@@ -160,6 +287,8 @@ export interface Post {
   excerpt?: string;
   featuredImage?: string;
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
+  isPremium?: boolean;
+  isLocked?: boolean;
   publishedAt?: string;
   viewCount: number;
   likeCount: number;
@@ -180,6 +309,10 @@ export interface Post {
     lastName: string;
     username: string;
     avatar?: string;
+    profileUrl?: string;
+    role?: 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER';
+    isVerified?: boolean;
+    createdAt?: string;
   };
   category?: {
     id: string;
@@ -187,8 +320,6 @@ export interface Post {
     slug: string;
     color?: string;
   };
-  isLocked?: boolean;
-  isPremium?: boolean;
 }
 
 export interface PremiumDashboardPost {
@@ -199,12 +330,6 @@ export interface PremiumDashboardPost {
   publishedAt?: string;
   createdAt: string;
   hasAccess: boolean;
-  category?: {
-    id: string;
-    name: string;
-    slug: string;
-    color?: string;
-  };
   author?: {
     id: string;
     firstName: string;
@@ -212,29 +337,29 @@ export interface PremiumDashboardPost {
     username: string;
     avatar?: string;
   };
-}
-
-export interface PaymentRecord {
-  id: string;
-  provider: string;
-  purpose: string;
-  amount: number;
-  currency: string;
-  status: string;
-  txRef: string;
-  paidAt?: string;
-  createdAt: string;
-}
-
-export interface PaymentProfile {
-  user: {
+  category?: {
     id: string;
-    email: string;
-    isPremium: boolean;
-    premiumSince?: string;
-    premiumUntil?: string;
+    name: string;
+    slug: string;
+    color?: string;
   };
-  payments: PaymentRecord[];
+}
+
+export interface UserPremiumPostAccess {
+  id: string;
+  userId: string;
+  postId: string;
+  grantedBy?: string;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  post?: {
+    id: string;
+    title: string;
+    slug: string;
+    isPremium: boolean;
+    status: string;
+  };
 }
 
 // Analytics Types
@@ -324,8 +449,82 @@ export interface MaintenanceStatus {
   updatedAt: string;
 }
 
+export interface SupportPayment {
+  id: string;
+  provider: string;
+  purpose: string;
+  amount: number;
+  currency: string;
+  status: string;
+  txRef: string;
+  paidAt?: string;
+  createdAt: string;
+}
+
+export interface PaymentsProfileResponse {
+  success: boolean;
+  data: {
+    user: {
+      id: string;
+      email: string;
+      isPremium: boolean;
+      premiumSince?: string;
+      premiumUntil?: string;
+    };
+    payments: SupportPayment[];
+  };
+}
+
+export interface KpayInitializePayload {
+  msisdn: string;
+  pmethod?: 'momo' | 'cc' | 'spenn';
+  amount?: number;
+}
+
+export interface KpayInitializeResponse {
+  success: boolean;
+  message: string;
+  data: {
+    paymentId: string;
+    txRef: string;
+    amount: number;
+    currency: string;
+    checkoutUrl: string | null;
+    providerReply?: Record<string, any>;
+    premium?: {
+      id: string;
+      isPremium: boolean;
+      premiumSince?: string;
+      premiumUntil?: string;
+    } | null;
+  };
+}
+
+export interface KpayVerifyResponse {
+  success: boolean;
+  message: string;
+  data: {
+    payment: {
+      id: string;
+      status: string;
+      txRef: string;
+      amount: number;
+      currency: string;
+      paidAt?: string;
+    };
+    premium: {
+      id: string;
+      isPremium: boolean;
+      premiumSince?: string;
+      premiumUntil?: string;
+    } | null;
+    providerReply?: Record<string, any>;
+  };
+}
+
 export interface AdBannerSlot {
   enabled: boolean;
+  adCode?: string;
   imageUrl: string;
   targetUrl: string;
   altText: string;
@@ -339,6 +538,7 @@ export interface AdsBannersState {
   slots: {
     leaderboardTop970x120: AdBannerSlot;
     business728x250: AdBannerSlot;
+    homeStory600x100: AdBannerSlot;
     sidebar300x250: AdBannerSlot;
     adminSidebar240x320: AdBannerSlot;
     square300x300: AdBannerSlot;
@@ -347,6 +547,120 @@ export interface AdsBannersState {
   };
 }
 
+export type ClassifiedCategory = 'cyamunara' | 'akazi' | 'guhinduza' | 'ibindi';
+export type ClassifiedStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface ClassifiedAd {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  category: ClassifiedCategory;
+  title: string;
+  description: string;
+  phone: string;
+  email: string;
+  attachmentName?: string;
+  attachmentUrl?: string;
+  durationDays: number;
+  priceRwf: number;
+  status: ClassifiedStatus;
+  reviewNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ClassifiedBroadcast {
+  id: string;
+  message: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface ClassifiedDispatchResult {
+  broadcastId: string;
+  totalTargets: number;
+  emailsSent: number;
+  emailError?: string | null;
+  smsSent: number;
+  smsError?: string | null;
+  sentAt: string;
+  phoneTargets: Array<{
+    userId: string;
+    name: string;
+    phone?: string;
+    whatsappUrl: string;
+  }>;
+}
+
+
+const parseCategoriesResponse = (payload: unknown): Category[] => {
+  if (!payload || typeof payload !== 'object') return [];
+  const body = payload as Record<string, unknown>;
+  if (Array.isArray(body.categories)) return body.categories as Category[];
+  if (Array.isArray(body.data)) return body.data as Category[];
+  const nested = body.data;
+  if (nested && typeof nested === 'object' && Array.isArray((nested as Record<string, unknown>).categories)) {
+    return (nested as Record<string, unknown>).categories as Category[];
+  }
+  return [];
+};
+
+const isValidPost = (value: Post | null | undefined): value is Post =>
+  Boolean(value?.id && value?.title);
+
+const parsePostResponse = (payload: unknown): Post | null => {
+  if (!payload || typeof payload !== 'object') return null;
+  const body = payload as Record<string, unknown>;
+  if (body.data && typeof body.data === 'object') return body.data as Post;
+  if (body.post && typeof body.post === 'object') return body.post as Post;
+  if (typeof body.id === 'string' && typeof body.title === 'string') return body as Post;
+  return null;
+};
+
+const parsePostsListResponse = (payload: unknown): { data: Post[]; pagination: Record<string, unknown> } => {
+  if (!payload || typeof payload !== 'object') {
+    return { data: [], pagination: {} };
+  }
+  const body = payload as Record<string, unknown>;
+  const pagination = (body.pagination as Record<string, unknown>) || {};
+  if (Array.isArray(body.data)) {
+    return { data: body.data as Post[], pagination };
+  }
+  if (Array.isArray(body.posts)) {
+    return { data: body.posts as Post[], pagination };
+  }
+  const nested = body.data;
+  if (nested && typeof nested === 'object') {
+    const nestedBody = nested as Record<string, unknown>;
+    if (Array.isArray(nestedBody.data)) {
+      return { data: nestedBody.data as Post[], pagination: (nestedBody.pagination as Record<string, unknown>) || pagination };
+    }
+    if (Array.isArray(nestedBody.posts)) {
+      return { data: nestedBody.posts as Post[], pagination: (nestedBody.pagination as Record<string, unknown>) || pagination };
+    }
+  }
+  return { data: [], pagination };
+};
+
+const isPublicReadEndpoint = (endpoint: string, method = 'GET') => {
+  const verb = method.toUpperCase();
+  if (verb !== 'GET' && verb !== 'HEAD') return false;
+  return (
+    /^\/posts(\/|\?|$)/.test(endpoint) ||
+    /^\/categories(\/|\?|$)/.test(endpoint) ||
+    /^\/news(\/|\?|$)/.test(endpoint)
+  );
+};
+
+const AUTH_FREE_ENDPOINTS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/change-password-with-email'
+];
+
 // API Client Class
 class ApiClient {
   private baseURL: string;
@@ -354,7 +668,13 @@ class ApiClient {
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
-    this.token = localStorage.getItem('umunsi_token');
+    this.token = null;
+
+    try {
+      this.token = localStorage.getItem('umunsi_token') || sessionStorage.getItem('umunsi_token');
+    } catch {
+      this.token = null;
+    }
   }
 
   private async request<T>(
@@ -363,6 +683,18 @@ class ApiClient {
     retryCount = 0
   ): Promise<T> {
     const url = `${this.baseURL}${endpoint}`;
+    const shouldSkipAuthRedirect = AUTH_FREE_ENDPOINTS.some((path) => endpoint.startsWith(path));
+    const canUseProdFallback = import.meta.env.PROD
+      && this.baseURL !== FALLBACK_PROD_API_URL
+      && endpoint.startsWith('/');
+
+    if (!this.token) {
+      try {
+        this.token = localStorage.getItem('umunsi_token') || sessionStorage.getItem('umunsi_token');
+      } catch {
+        this.token = null;
+      }
+    }
     
     const headers: HeadersInit = {};
 
@@ -386,34 +718,83 @@ class ApiClient {
         headers,
       });
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
-      // Handle token expiration
-      if (response.status === 401 && retryCount === 0 && this.token) {
+      const isPublicRead = isPublicReadEndpoint(endpoint, options.method);
+
+      // Public reads must never redirect to login (expired editor tokens should not break the site).
+      if (response.status === 401 && isPublicRead) {
+        if (retryCount === 0 && this.token) {
+          this.token = null;
+          try {
+            localStorage.removeItem('umunsi_token');
+            sessionStorage.removeItem('umunsi_token');
+          } catch {
+            // Ignore storage removal failures.
+          }
+          return this.request<T>(endpoint, options, retryCount + 1);
+        }
+        const authError = new Error(data.error || data.message || 'Unable to load content.');
+        (authError as Error & { status?: number }).status = 401;
+        throw authError;
+      }
+
+      // Handle token expiration for protected routes
+      if (response.status === 401 && retryCount === 0 && this.token && !shouldSkipAuthRedirect) {
         try {
-          // Try to refresh the token
           await this.refreshToken();
-          // Retry the original request
           return this.request(endpoint, options, retryCount + 1);
         } catch (refreshError) {
-          // If refresh fails, clear token and redirect to login
           this.token = null;
-          localStorage.removeItem('umunsi_token');
-          window.location.href = '/login';
+          try {
+            localStorage.removeItem('umunsi_token');
+            sessionStorage.removeItem('umunsi_token');
+          } catch {
+            // Ignore storage removal failures.
+          }
+          window.location.href = '/subscriber-login';
           throw new Error('Session expired. Please login again.');
         }
-      } else if (response.status === 401 && !this.token) {
-        // No token available, redirect to login
-        window.location.href = '/login';
+      } else if (response.status === 401 && !this.token && !shouldSkipAuthRedirect) {
+        window.location.href = '/subscriber-login';
         throw new Error('Authentication required. Please login.');
       }
 
+      if (response.status === 429) {
+        const rateMessage =
+          data.error || data.message || 'Too many requests. Please wait a moment and try again.';
+        if (retryCount < 3) {
+          const delay = Math.min(800 * 2 ** retryCount + Math.random() * 400, 6000);
+          await new Promise((resolve) => window.setTimeout(resolve, delay));
+          return this.request<T>(endpoint, options, retryCount + 1);
+        }
+        const rateError = new Error(rateMessage);
+        (rateError as Error & { status?: number }).status = 429;
+        throw rateError;
+      }
+
       if (!response.ok) {
-        throw new Error(data.error || data.message || 'API request failed');
+        const failError = new Error(data.error || data.message || data.details || 'API request failed');
+        (failError as Error & { status?: number }).status = response.status;
+        throw failError;
       }
 
       return data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error || '');
+      const isNetworkStyleError = /fetch|network|load failed|failed to fetch/i.test(errorMessage);
+
+      if (canUseProdFallback && isNetworkStyleError) {
+        const previousBaseUrl = this.baseURL;
+        this.baseURL = FALLBACK_PROD_API_URL;
+
+        try {
+          return await this.request<T>(endpoint, options, retryCount);
+        } finally {
+          this.baseURL = previousBaseUrl;
+        }
+      }
+
       throw error;
     }
   }
@@ -427,7 +808,12 @@ class ApiClient {
     
     if (response.success && response.token) {
       this.token = response.token;
-      localStorage.setItem('umunsi_token', response.token);
+      try {
+        localStorage.setItem('umunsi_token', response.token);
+        sessionStorage.setItem('umunsi_token', response.token);
+      } catch {
+        // Ignore storage write failures.
+      }
     }
     
     return response;
@@ -441,10 +827,36 @@ class ApiClient {
     
     if (response.success && response.token) {
       this.token = response.token;
-      localStorage.setItem('umunsi_token', response.token);
+      try {
+        localStorage.setItem('umunsi_token', response.token);
+        sessionStorage.setItem('umunsi_token', response.token);
+      } catch {
+        // Ignore storage write failures.
+      }
     }
     
     return response;
+  }
+
+  async forgotPassword(payload: ForgotPasswordPayload): Promise<PasswordFlowResponse> {
+    return this.request<PasswordFlowResponse>('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async resetPassword(payload: ResetPasswordPayload): Promise<PasswordFlowResponse> {
+    return this.request<PasswordFlowResponse>('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async changePasswordWithEmail(payload: ChangePasswordWithEmailPayload): Promise<PasswordFlowResponse> {
+    return this.request<PasswordFlowResponse>('/auth/change-password-with-email', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
   }
 
   async logout(): Promise<void> {
@@ -454,7 +866,12 @@ class ApiClient {
       console.error('Logout error:', error);
     } finally {
       this.token = null;
-      localStorage.removeItem('umunsi_token');
+      try {
+        localStorage.removeItem('umunsi_token');
+        sessionStorage.removeItem('umunsi_token');
+      } catch {
+        // Ignore storage removal failures.
+      }
     }
   }
 
@@ -469,6 +886,7 @@ class ApiClient {
     lastName?: string;
     bio?: string;
     avatar?: string;
+    profileUrl?: string;
   }): Promise<{ success: boolean; user: User; message?: string }> {
     const response = await this.request<{ success: boolean; user: User; message?: string }>('/auth/profile', {
       method: 'PUT',
@@ -525,15 +943,40 @@ class ApiClient {
     }
   }
 
+  async initializeKpaySupportPayment(payload: KpayInitializePayload): Promise<KpayInitializeResponse> {
+    return this.request<KpayInitializeResponse>('/payments/kpay/initialize', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async verifyKpaySupportPayment(txRef: string): Promise<KpayVerifyResponse> {
+    return this.request<KpayVerifyResponse>(`/payments/kpay/verify/${encodeURIComponent(txRef)}`);
+  }
+
+  async getPaymentsProfile(): Promise<PaymentsProfileResponse> {
+    return this.request<PaymentsProfileResponse>('/payments/me');
+  }
+
   // Token management methods
   setToken(token: string): void {
     this.token = token;
-    localStorage.setItem('umunsi_token', token);
+    try {
+      localStorage.setItem('umunsi_token', token);
+      sessionStorage.setItem('umunsi_token', token);
+    } catch {
+      // Ignore storage write failures.
+    }
   }
 
   clearToken(): void {
     this.token = null;
-    localStorage.removeItem('umunsi_token');
+    try {
+      localStorage.removeItem('umunsi_token');
+      sessionStorage.removeItem('umunsi_token');
+    } catch {
+      // Ignore storage removal failures.
+    }
   }
 
   // Health check method
@@ -611,15 +1054,24 @@ class ApiClient {
 
   // Categories Methods
   async getCategories(options?: { includeInactive?: boolean }): Promise<Category[]> {
-    const params = new URLSearchParams();
-    if (options?.includeInactive) {
-      params.append('includeInactive', 'true');
-    }
-    const queryString = params.toString();
-    const url = queryString ? `/categories?${queryString}` : '/categories';
-    const response = await this.request<{categories: Category[]}>(url);
-    // The API returns {success: true, categories: [...]}
-    return response.categories || [];
+    const includeInactive = Boolean(options?.includeInactive);
+    const cacheKey = buildCacheKey('categories', { includeInactive });
+    const persistKey = includeInactive ? 'umunsi_categories_all_v1' : 'umunsi_categories_v1';
+
+    return cachedRequest(
+      cacheKey,
+      async () => {
+        const params = new URLSearchParams();
+        if (includeInactive) {
+          params.append('includeInactive', 'true');
+        }
+        const queryString = params.toString();
+        const url = queryString ? `/categories?${queryString}` : '/categories';
+        const response = await this.request<unknown>(url);
+        return parseCategoriesResponse(response);
+      },
+      { ttlMs: 90_000, persistKey },
+    );
   }
 
   async createCategory(categoryData: Partial<Category>): Promise<{ success: boolean; category: Category; message?: string }> {
@@ -627,6 +1079,7 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(categoryData),
     });
+    invalidateCachePrefix('categories');
     return response;
   }
 
@@ -635,11 +1088,13 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify(categoryData),
     });
+    invalidateCachePrefix('categories');
     return response;
   }
 
   async deleteCategory(id: string): Promise<void> {
     await this.request(`/categories/${id}`, { method: 'DELETE' });
+    invalidateCachePrefix('categories');
   }
 
   // Users Methods
@@ -697,9 +1152,10 @@ class ApiClient {
     username?: string;
     firstName?: string;
     lastName?: string;
+    profileUrl?: string;
     role?: 'ADMIN' | 'EDITOR' | 'AUTHOR' | 'USER';
   }): Promise<{ success: boolean; user: User; message?: string }> {
-    const response = await this.request<{ success: boolean; user: User; message?: string }>('/auth/register', {
+    const response = await this.request<{ success: boolean; user: User; message?: string }>('/users', {
       method: 'POST',
       body: JSON.stringify(userData),
     });
@@ -716,6 +1172,23 @@ class ApiClient {
 
   async deleteUser(id: string): Promise<void> {
     await this.request(`/admin/users/${id}`, { method: 'DELETE' });
+  }
+
+  async grantUserPremiumPostAccess(userId: string, payload: { postId: string; expiresAt?: string | null }): Promise<{ success: boolean; message?: string; data: UserPremiumPostAccess }> {
+    return this.request<{ success: boolean; message?: string; data: UserPremiumPostAccess }>(`/admin/users/${userId}/premium-posts`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getUserPremiumPostAccess(userId: string): Promise<{ success: boolean; data: UserPremiumPostAccess[] }> {
+    return this.request<{ success: boolean; data: UserPremiumPostAccess[] }>(`/admin/users/${userId}/premium-posts`);
+  }
+
+  async revokeUserPremiumPostAccess(userId: string, postId: string): Promise<{ success: boolean; message?: string }> {
+    return this.request<{ success: boolean; message?: string }>(`/admin/users/${userId}/premium-posts/${postId}`, {
+      method: 'DELETE',
+    });
   }
 
   // Analytics Methods
@@ -747,6 +1220,107 @@ class ApiClient {
     return response;
   }
 
+  async getClassifiedAds(params?: { category?: ClassifiedCategory; status?: ClassifiedStatus }): Promise<ClassifiedAd[]> {
+    const query = new URLSearchParams();
+    if (params?.category) query.append('category', params.category);
+    if (params?.status) query.append('status', params.status);
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    const response = await this.request<{ success: boolean; data: ClassifiedAd[] }>(`/classifieds${suffix}`);
+    return response.data || [];
+  }
+
+  async getMyClassifiedAds(): Promise<ClassifiedAd[]> {
+    const response = await this.request<{ success: boolean; data: ClassifiedAd[] }>('/classifieds/mine');
+    return response.data || [];
+  }
+
+  async getAllClassifiedAds(): Promise<ClassifiedAd[]> {
+    const response = await this.request<{ success: boolean; data: ClassifiedAd[] }>('/classifieds/all');
+    return response.data || [];
+  }
+
+  async getClassifiedAdsByUser(userId: string): Promise<ClassifiedAd[]> {
+    const response = await this.request<{ success: boolean; data: ClassifiedAd[] }>(`/classifieds/user/${userId}`);
+    return response.data || [];
+  }
+
+  async submitClassifiedAd(payload: {
+    category: ClassifiedCategory;
+    title: string;
+    description: string;
+    phone: string;
+    email: string;
+    attachmentName?: string;
+    attachmentUrl?: string;
+    durationDays: number;
+    priceRwf: number;
+  }): Promise<ClassifiedAd> {
+    const response = await this.request<{ success: boolean; data: ClassifiedAd }>('/classifieds', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async updateClassifiedStatus(id: string, status: 'APPROVED' | 'REJECTED', reviewNote?: string): Promise<ClassifiedAd> {
+    const response = await this.request<{ success: boolean; data: ClassifiedAd }>(`/classifieds/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status, reviewNote }),
+    });
+    return response.data;
+  }
+
+  async updateClassifiedAd(
+    id: string,
+    payload: Partial<{
+      category: ClassifiedCategory;
+      title: string;
+      description: string;
+      phone: string;
+      email: string;
+      attachmentName: string;
+      attachmentUrl: string;
+      durationDays: number;
+      priceRwf: number;
+      status: ClassifiedStatus;
+      reviewNote: string;
+    }>
+  ): Promise<ClassifiedAd> {
+    const response = await this.request<{ success: boolean; data: ClassifiedAd }>(`/classifieds/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
+  async getClassifiedBroadcasts(): Promise<ClassifiedBroadcast[]> {
+    const response = await this.request<{ success: boolean; data: ClassifiedBroadcast[] }>('/classifieds/broadcasts/list');
+    return response.data || [];
+  }
+
+  async createClassifiedBroadcast(message: string): Promise<ClassifiedBroadcast> {
+    const response = await this.request<{ success: boolean; data: ClassifiedBroadcast }>('/classifieds/broadcasts', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+    return response.data;
+  }
+
+  async dispatchClassifiedBroadcast(payload: {
+    message: string;
+    userIds?: string[];
+    sendEmail?: boolean;
+    sendPhone?: boolean;
+    sendSms?: boolean;
+    subject?: string;
+  }): Promise<ClassifiedDispatchResult> {
+    const response = await this.request<{ success: boolean; data: ClassifiedDispatchResult }>('/classifieds/broadcasts/dispatch', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+    return response.data;
+  }
+
   async getAdminAdsBanners(): Promise<AdsBannersState> {
     const response = await this.request<AdsBannersState>('/admin/ads-banners');
     return response;
@@ -771,21 +1345,74 @@ class ApiClient {
     sortBy?: string;
     sortOrder?: 'asc' | 'desc';
   }): Promise<{ data: Post[]; pagination: any }> {
-    const queryParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined) {
-          queryParams.append(key, value.toString());
+    const cacheKey = buildCacheKey('posts', params || {});
+    const persistKey = params?.category
+      ? `umunsi_posts_cat_${params.category}_${params.status || 'any'}_v1`
+      : undefined;
+
+    return cachedRequest(
+      cacheKey,
+      async () => {
+        const queryParams = new URLSearchParams();
+        if (params) {
+          Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined) {
+              queryParams.append(key, value.toString());
+            }
+          });
         }
-      });
-    }
-    const response = await this.request<{ data: Post[]; pagination: any }>(`/posts?${queryParams}`);
-    return response;
+        const response = await this.request<unknown>(`/posts?${queryParams}`);
+        return parsePostsListResponse(response);
+      },
+      { ttlMs: 45_000, persistKey },
+    );
   }
 
   async getPost(id: string): Promise<Post> {
-    const response = await this.request<{ success: boolean; data: Post }>(`/posts/${id}`);
-    return response.data;
+    const encodedId = encodeURIComponent(id);
+    const cacheKey = buildCacheKey('post', { id });
+    const persistKey = `umunsi_post_entry_${id}`;
+    return cachedRequest(
+      cacheKey,
+      async () => {
+        try {
+          const response = await this.request<unknown>(`/posts/${encodedId}`);
+          const parsed = parsePostResponse(response);
+          if (isValidPost(parsed)) return parsed;
+        } catch (directError) {
+          const status = (directError as { status?: number })?.status;
+          if (status && status !== 404 && status !== 429) throw directError;
+        }
+
+        const list = await this.getPosts({ status: 'PUBLISHED', search: id, limit: 10 });
+        let match = list.data.find(
+          (post) => post.slug === id || post.id === id || encodeURIComponent(post.slug || '') === encodedId,
+        );
+        if (!match) {
+          const recent = await this.getPosts({ status: 'PUBLISHED', limit: 100 });
+          match = recent.data.find(
+            (post) => post.slug === id || post.id === id,
+          );
+        }
+        if (isValidPost(match)) return match;
+
+        const notFound = new Error('Post not found');
+        (notFound as Error & { status?: number }).status = 404;
+        throw notFound;
+      },
+      { ttlMs: 60_000, persistKey },
+    );
+  }
+
+  async trackPostShare(id: string, platform: string): Promise<{ success: boolean; data: { postId: string; platform: string; shareCount: number; shareBreakdown?: Record<string, number> } }> {
+    return this.request(`/posts/${encodeURIComponent(id)}/share`, {
+      method: 'POST',
+      body: JSON.stringify({ platform }),
+    });
+  }
+
+  async getPremiumDashboardPosts(): Promise<{ success: boolean; data: PremiumDashboardPost[] }> {
+    return this.request<{ success: boolean; data: PremiumDashboardPost[] }>('/posts/premium-dashboard');
   }
 
   async createPost(data: {
@@ -794,6 +1421,7 @@ class ApiClient {
     excerpt?: string;
     featuredImage?: string;
     status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
+    isPremium?: boolean;
     categoryId?: string;
     isFeatured?: boolean;
     isPinned?: boolean;
@@ -806,6 +1434,7 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+    invalidateCachePrefix('posts');
     return response;
   }
 
@@ -815,6 +1444,7 @@ class ApiClient {
     excerpt: string;
     featuredImage: string;
     status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED' | 'DELETED';
+    isPremium: boolean;
     categoryId: string;
     isFeatured: boolean;
     isPinned: boolean;
@@ -827,6 +1457,7 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+    invalidateCachePrefix('posts');
     return response;
   }
 
@@ -834,6 +1465,7 @@ class ApiClient {
     await this.request(`/posts/${id}`, {
       method: 'DELETE',
     });
+    invalidateCachePrefix('posts');
   }
 
   async deletePosts(ids: string[]): Promise<void> {
@@ -841,47 +1473,7 @@ class ApiClient {
       method: 'DELETE',
       body: JSON.stringify({ ids }),
     });
-  }
-
-  async getPremiumDashboard(): Promise<{ success: boolean; data: PremiumDashboardPost[] }> {
-    return this.request('/posts/premium-dashboard');
-  }
-
-  async getPaymentProfile(): Promise<{ success: boolean; data: PaymentProfile }> {
-    return this.request('/payments/me');
-  }
-
-  async initializeKPayPayment(payload: {
-    amount?: number;
-    pmethod?: string;
-    msisdn?: string;
-  }): Promise<{
-    success: boolean;
-    message: string;
-    data: {
-      paymentId: string;
-      txRef: string;
-      amount: number;
-      currency: string;
-      checkoutUrl?: string;
-      premium?: { isPremium: boolean; premiumUntil?: string };
-    };
-  }> {
-    return this.request('/payments/kpay/initialize', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
-  }
-
-  async verifyKPayPayment(txRef: string): Promise<{
-    success: boolean;
-    message: string;
-    data: {
-      payment: PaymentRecord;
-      premium?: { isPremium: boolean; premiumUntil?: string };
-    };
-  }> {
-    return this.request(`/payments/kpay/verify/${encodeURIComponent(txRef)}`);
+    invalidateCachePrefix('posts');
   }
 
   async getPostStats(): Promise<{

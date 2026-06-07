@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Crown,
   Sparkles,
@@ -24,20 +24,14 @@ import {
   Send,
   Headphones
 } from 'lucide-react';
-import { apiClient, PremiumDashboardPost, PaymentRecord } from '../services/api';
+import { apiClient, PremiumDashboardPost, SupportPayment, resolveAssetUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const PREMIUM_AMOUNT = 500;
 
-const getServerBaseUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace('/api', '');
-};
-
 const getImageUrl = (url?: string) => {
   if (!url) return 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=250&fit=crop';
-  if (url.startsWith('http')) return url;
-  return `${getServerBaseUrl()}${url}`;
+  return resolveAssetUrl(url) || 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=250&fit=crop';
 };
 
 const formatDate = (dateString?: string) => {
@@ -73,7 +67,7 @@ const PremiumDashboard = () => {
 
   const [loading, setLoading] = useState(true);
   const [premiumPosts, setPremiumPosts] = useState<PremiumDashboardPost[]>([]);
-  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [payments, setPayments] = useState<SupportPayment[]>([]);
   const [premiumUntil, setPremiumUntil] = useState<string | null>(null);
   const [isPremium, setIsPremium] = useState(false);
 
@@ -90,8 +84,8 @@ const PremiumDashboard = () => {
     try {
       setLoading(true);
       const [postsRes, paymentRes] = await Promise.all([
-        apiClient.getPremiumDashboard(),
-        apiClient.getPaymentProfile()
+        apiClient.getPremiumDashboardPosts(),
+        apiClient.getPaymentsProfile()
       ]);
 
       if (postsRes.success) setPremiumPosts(postsRes.data || []);
@@ -112,8 +106,16 @@ const PremiumDashboard = () => {
       navigate('/login?redirect=/subscriber/account');
       return;
     }
+    if (user?.role && user.role !== 'USER') {
+      navigate('/admin');
+      return;
+    }
     loadDashboard();
-  }, [isAuthenticated, navigate, loadDashboard]);
+  }, [isAuthenticated, user?.role, navigate, loadDashboard]);
+
+  if (user?.role && user.role !== 'USER') {
+    return <Navigate to="/admin" replace />;
+  }
 
   useEffect(() => {
     const txRef = searchParams.get('txRef');
@@ -124,7 +126,7 @@ const PremiumDashboard = () => {
       try {
         setVerifying(true);
         setMessage({ type: 'info', text: 'Turareba ko kwishyura byagenze neza...' });
-        const result = await apiClient.verifyKPayPayment(txRef);
+        const result = await apiClient.verifyKpaySupportPayment(txRef);
         if (result.data?.payment?.status === 'SUCCESS') {
           setMessage({ type: 'success', text: 'Kwishyura byagenze neza! Premium yafunguwe.' });
           setIsPremium(true);
@@ -155,8 +157,7 @@ const PremiumDashboard = () => {
     setMessage(null);
 
     try {
-      const result = await apiClient.initializeKPayPayment({
-        amount: PREMIUM_AMOUNT,
+      const result = await apiClient.initializeKpaySupportPayment({
         pmethod: payMethod,
         msisdn: payMethod === 'momo' ? msisdn : undefined
       });
@@ -194,6 +195,8 @@ const PremiumDashboard = () => {
   const activePremium = isPremiumActive(isPremium, premiumUntil);
   const accessibleCount = premiumPosts.filter((p) => p.hasAccess).length;
   const lockedCount = premiumPosts.filter((p) => !p.hasAccess).length;
+  const successfulPayments = payments.filter((payment) => payment.status === 'SUCCESS');
+  const totalBalance = successfulPayments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
 
   const benefits = [
     { icon: BookOpen, title: 'Inkuru za Premium', desc: 'Soma amakuru yihariye n\'ibyanditswe byimbitse' },
@@ -275,6 +278,27 @@ const PremiumDashboard = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 -mt-2 pb-2">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="rounded-2xl border border-[#2b2f36] bg-[#181a20] p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Inkuru za Premium</p>
+            <p className="mt-2 text-2xl md:text-3xl font-black text-white">{premiumPosts.length}</p>
+          </div>
+          <div className="rounded-2xl border border-[#2b2f36] bg-[#181a20] p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Zifunguye</p>
+            <p className="mt-2 text-2xl md:text-3xl font-black text-[#fcd535]">{accessibleCount}</p>
+          </div>
+          <div className="rounded-2xl border border-[#2b2f36] bg-[#181a20] p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Balance</p>
+            <p className="mt-2 text-2xl md:text-3xl font-black text-emerald-400">{totalBalance.toLocaleString()} RWF</p>
+          </div>
+          <div className="rounded-2xl border border-[#2b2f36] bg-[#181a20] p-4">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Kwishyura</p>
+            <p className="mt-2 text-2xl md:text-3xl font-black text-white">{successfulPayments.length}</p>
           </div>
         </div>
       </div>

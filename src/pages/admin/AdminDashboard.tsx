@@ -21,6 +21,7 @@ import {
   XCircle
 } from 'lucide-react';
 import { apiClient } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface DashboardStats {
   totalUsers: number;
@@ -39,6 +40,8 @@ interface RecentActivity {
 }
 
 const AdminDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const isAuthorOnly = user?.role === 'AUTHOR';
   const [stats, setStats] = useState<DashboardStats>({
     totalUsers: 0,
     totalArticles: 0,
@@ -59,15 +62,14 @@ const AdminDashboard: React.FC = () => {
 
       // Fetch articles for stats
       const articlesResponse = await apiClient.getArticles({ page: 1, limit: 1000 });
-      const articles = articlesResponse?.data || [];
+      const allArticles = articlesResponse?.data || [];
+      const articles = isAuthorOnly && user?.id
+        ? allArticles.filter((article) => article.author?.id === user.id)
+        : allArticles;
 
       // Calculate stats from articles
       const totalViews = articles.reduce((sum, article) => sum + (article.viewCount || 0), 0);
       const totalLikes = articles.reduce((sum, article) => sum + (article.likeCount || 0), 0);
-
-      // Fetch categories for additional context
-      const categoriesResponse = await apiClient.getCategories();
-      const categories = categoriesResponse || [];
 
       setStats({
         totalUsers: 0, // Will be updated when user stats endpoint is available
@@ -97,6 +99,10 @@ const AdminDashboard: React.FC = () => {
     { title: 'Analytics', description: 'View site analytics', icon: BarChart3, color: 'from-purple-500 to-purple-600', bgColor: 'bg-purple-50' },
     { title: 'Settings', description: 'Configure site settings', icon: Settings, color: 'from-orange-500 to-orange-600', bgColor: 'bg-orange-50' },
   ];
+
+  const visibleQuickActions = isAuthorOnly
+    ? quickActions.filter((action) => action.title !== 'Analytics')
+    : quickActions;
 
   if (loading) {
   return (
@@ -140,10 +146,10 @@ const AdminDashboard: React.FC = () => {
                   <Zap className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-4xl font-bold bg-gradient-to-r from-green-700 via-yellow-600 to-green-800 bg-clip-text text-transparent">
-                    Dashboard Overview
-                  </h1>
-                  <p className="text-lg text-gray-600 mt-2">Welcome back! Here's what's happening with your site today.</p>
+                          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-700 via-yellow-600 to-green-800 bg-clip-text text-transparent">
+                            {isAuthorOnly ? 'Author Dashboard' : 'Dashboard Overview'}
+                          </h1>
+                          <p className="text-lg text-gray-600 mt-2">{isAuthorOnly ? 'Reba performance y\'inkuru wanditse gusa.' : "Welcome back! Here's what's happening with your site today."}</p>
                 </div>
               </div>
               <div className="flex items-center space-x-6 text-sm">
@@ -217,7 +223,7 @@ const AdminDashboard: React.FC = () => {
           <div className="relative bg-gradient-to-br from-green-50 via-green-100 to-green-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 hover:shadow-3xl transition-all duration-500 hover:scale-105">
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-green-700 uppercase tracking-wide">Total Views</p>
+                <p className="text-sm font-semibold text-green-700 uppercase tracking-wide">{isAuthorOnly ? 'Views ku nkuru zawe' : 'Total Views'}</p>
                 <p className="text-4xl font-bold text-green-800">{stats.totalViews}</p>
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
@@ -241,7 +247,7 @@ const AdminDashboard: React.FC = () => {
           <div className="relative bg-gradient-to-br from-green-50 via-green-100 to-green-50 rounded-3xl p-8 shadow-2xl border border-green-200/50 hover:shadow-3xl transition-all duration-500 hover:scale-105">
             <div className="flex items-center justify-between mb-4">
               <div className="space-y-2">
-                <p className="text-sm font-semibold text-green-700 uppercase tracking-wide">Total Likes</p>
+                <p className="text-sm font-semibold text-green-700 uppercase tracking-wide">{isAuthorOnly ? 'Likes ku nkuru zawe' : 'Total Likes'}</p>
                 <p className="text-4xl font-bold text-green-800">{stats.totalLikes}</p>
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>

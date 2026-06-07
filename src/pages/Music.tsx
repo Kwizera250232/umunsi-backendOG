@@ -145,7 +145,7 @@ const Music = () => {
           <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-pink-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
         </div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-16">
+        <div className="relative z-10 px-4 py-16">
           <div className="text-center">
             <div className="inline-flex items-center gap-2 bg-[#1e2329] border border-[#2b2f36] px-4 py-2 rounded-full mb-6">
               <Music2 className="w-5 h-5 text-[#fcd535]" />
@@ -168,7 +168,7 @@ const Music = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Content - Left */}
           <div className="lg:col-span-3 space-y-8">
