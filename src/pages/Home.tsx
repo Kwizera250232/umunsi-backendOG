@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Eye, ChevronRight, Heart, TrendingUp, Zap, AlertCircle, Mail, Calendar, MapPin, CloudSun, Send, ThumbsUp } from 'lucide-react';
+import { Clock, ChevronRight, Heart, Zap, AlertCircle, Mail, Calendar, MapPin, CloudSun, Send, ThumbsUp } from 'lucide-react';
 import { apiClient, Post, Category, ClassifiedAd, AdsBannersState, resolveAssetUrl, extractFirstImageFromHtml } from '../services/api';
 import { clearPublicContentCaches } from '../lib/requestCache';
 import { useAuth } from '../contexts/AuthContext';
 import AdSenseUnit from '../components/ads/AdSenseUnit';
 import { ADSENSE_SLOTS } from '../constants/adsense';
+import MostReadSidebarSlide from '../components/home/MostReadSidebarSlide';
+import SidebarBannerSlide from '../components/home/SidebarBannerSlide';
 
 type SpecialCategoryKey = 'cyamunara' | 'akazi';
 
@@ -370,7 +372,6 @@ const Home = () => {
   const middleBottom = topSectionPool[3] || null;
   const rightColumnPosts = topSectionPool.slice(4, 9);
   const otherPosts = posts.filter(p => p.id !== mainHighlight?.id);
-  const trendingPosts = [...posts].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, 6);
   const latestPosts = activeTab === 'all' ? posts.slice(0, 8) : filteredPosts.slice(0, 8);
   const breakingNews = posts.slice(0, 5);
 
@@ -485,19 +486,20 @@ const Home = () => {
               )}
 
               {mainHighlight && (
-                <Link to={`/post/${mainHighlight.slug}`} className="block group">
-                  <div className="relative overflow-hidden bg-[#0b0e11] rounded">
-                    <img
-                      src={getImageUrl(mainHighlight.featuredImage)}
-                      alt={mainHighlight.title}
-                      className="w-full h-[260px] md:h-[340px] object-cover"
-                      onError={handleImageError}
-                    />
-                    <div className="home-image-overlay absolute inset-x-0 bottom-0 px-3 py-3">
-                      <h2 className="home-image-overlay-title text-white text-lg md:text-2xl font-bold leading-tight line-clamp-2 group-hover:text-[#fcd535] transition-colors">
-                        {mainHighlight.title}
-                      </h2>
-                    </div>
+                <Link to={`/post/${mainHighlight.slug}`} className="block group bg-[#0b0e11] rounded overflow-hidden">
+                  <img
+                    src={getImageUrl(mainHighlight.featuredImage)}
+                    alt={mainHighlight.title}
+                    className="w-full h-[260px] md:h-[340px] object-cover"
+                    onError={handleImageError}
+                  />
+                  <div className="px-3 py-3">
+                    <h2 className="text-white text-lg md:text-2xl font-bold leading-tight line-clamp-2 group-hover:text-[#fcd535] transition-colors">
+                      {mainHighlight.title}
+                    </h2>
+                    <p className="text-gray-500 text-xs mt-2 uppercase tracking-wide">
+                      {formatDate(mainHighlight.publishedAt || mainHighlight.createdAt)}
+                    </p>
                   </div>
                 </Link>
               )}
@@ -849,49 +851,18 @@ const Home = () => {
               </form>
             </div>
 
-            {/* Trending Posts */}
-            <div className="bg-[#181a20] rounded-lg overflow-hidden">
-              <div className="p-4 border-b border-[#2b2f36]">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <TrendingUp className="w-5 h-5 text-[#fcd535]" />
-                  Ibisomwa Cyane
-                </h2>
-              </div>
-              
-              <div className="divide-y divide-[#2b2f36]">
-                {trendingPosts.map((post, index) => (
-                  <Link key={post.id} to={`/post/${post.slug}`} className="flex gap-3 p-4 hover:bg-[#1e2329] transition-colors group">
-                    <span className={`w-8 h-8 rounded flex items-center justify-center font-bold text-sm flex-shrink-0 ${
-                      index < 3 ? 'bg-[#fcd535] text-[#0b0e11]' : 'bg-[#2b2f36] text-gray-400'
-                    }`}>
-                      {index + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-gray-300 text-sm group-hover:text-[#fcd535] transition-colors line-clamp-2">
-                        {post.title}
-                      </h3>
-                      {canSeeViews && (
-                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
-                          <Eye className="w-3 h-3" />
-                          {post.viewCount}
-                        </div>
-                      )}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
+            <MostReadSidebarSlide
+              posts={posts}
+              canSeeViews={canSeeViews}
+              formatDate={formatDate}
+            />
 
-            {showAds && hasBannerContent('sidebar300x250') && (
-              <div className="bg-[#181a20] rounded-lg overflow-hidden">
-                <div className="p-2 border-b border-[#2b2f36]">
-                  <p className="text-gray-500 text-[10px] text-center uppercase tracking-wider">Kwamamaza</p>
-                </div>
-                <div className="p-3">
-                  {renderBannerSlot('sidebar300x250', '300 x 250 px', 'aspect-[300/250] rounded-lg overflow-hidden bg-[#0b0e11]')}
-                </div>
-              </div>
-            )}
+            <SidebarBannerSlide
+              showAds={showAds}
+              adsBanners={adsBanners}
+              hasBannerContent={hasBannerContent}
+              renderBanner={renderBannerSlot}
+            />
 
             {/* Categories List */}
             <div className="bg-[#181a20] rounded-lg overflow-hidden">
@@ -918,16 +889,6 @@ const Home = () => {
               </div>
             </div>
 
-            {showAds && hasBannerContent('square300x300') && (
-              <div className="bg-[#181a20] rounded-lg overflow-hidden">
-                <div className="p-2 border-b border-[#2b2f36]">
-                  <p className="text-gray-500 text-[10px] text-center uppercase tracking-wider">Kwamamaza</p>
-                </div>
-                <div className="p-3">
-                  {renderBannerSlot('square300x300', '300 x 300 px', 'aspect-square rounded-lg overflow-hidden')}
-                </div>
-              </div>
-            )}
 
             {/* Top Liked in Sidebar */}
             <div className="bg-[#181a20] rounded-lg overflow-hidden">

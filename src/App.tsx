@@ -15,7 +15,7 @@ import Login from './pages/Login';
 import AdminLogin from './pages/AdminLogin';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import SubscriberAccount from './pages/SubscriberAccount';
+import PremiumDashboard from './pages/PremiumDashboard';
 import Register from './pages/Register';
 import TestLogin from './pages/TestLogin';
 import Profile from './pages/Profile';
@@ -84,7 +84,7 @@ const ProtectedPostDetail = withAuthor(PostDetail);
 const ProtectedRoles = withAdmin(Roles);
 const ProtectedAdsManagement = withEditor(AdsManagement);
 const ProtectedProfile = withAuth(Profile);
-const ProtectedSubscriberAccount = withAuth(SubscriberAccount);
+const ProtectedPremiumDashboard = withAuth(PremiumDashboard);
 
 const AdminHomeRedirect: React.FC = () => {
   const { user } = useAuth();
@@ -141,7 +141,7 @@ function App() {
                 <Route path="/amatangazo" element={<ClassifiedAds />} />
                 <Route path="/amatangazo/:category" element={<ClassifiedAds />} />
                 <Route path="/profile" element={<ProtectedProfile />} />
-                <Route path="/subscriber/account" element={<ProtectedSubscriberAccount />} />
+                <Route path="/subscriber/account" element={<ProtectedPremiumDashboard />} />
               </Routes>
             </Layout>
           } />
