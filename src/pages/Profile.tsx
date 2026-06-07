@@ -13,7 +13,8 @@ import {
   AlertCircle,
   Eye,
   EyeOff,
-  Lock
+  Lock,
+  BadgeCheck
 } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,6 +23,16 @@ const getServerBaseUrl = () => {
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
   return apiUrl.replace('/api', '');
 };
+
+const SPECIAL_ADMIN_NAME = 'kwizera jean de dieu';
+const SPECIAL_ADMIN_USERNAME = 'kwizerajeandedieu250';
+
+const normalizeIdentityName = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
 
 const Profile = () => {
   const navigate = useNavigate();
@@ -36,7 +47,8 @@ const Profile = () => {
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
-    bio: ''
+    bio: '',
+    profileUrl: ''
   });
   
   const [passwordData, setPasswordData] = useState({
@@ -62,7 +74,8 @@ const Profile = () => {
         setFormData({
           firstName: response.user.firstName || '',
           lastName: response.user.lastName || '',
-          bio: response.user.bio || ''
+          bio: response.user.bio || '',
+          profileUrl: response.user.profileUrl || ''
         });
       }
     } catch (error) {
@@ -178,6 +191,15 @@ const Profile = () => {
     return `${getServerBaseUrl()}${avatar}`;
   };
 
+  const displayName = `${profile?.firstName || ''} ${profile?.lastName || ''}`.trim();
+  const normalizedDisplayName = normalizeIdentityName(displayName);
+  const normalizedUsername = normalizeIdentityName(profile?.username || authUser?.username || '');
+  const profileRole = String(profile?.role || authUser?.role || '').toUpperCase();
+  const isSpecialAdmin =
+    profileRole === 'ADMIN' &&
+    (normalizedDisplayName === SPECIAL_ADMIN_NAME || normalizedUsername === SPECIAL_ADMIN_USERNAME);
+  const showAuthorBadge = (profileRole === 'AUTHOR' && Boolean(profile?.isVerified)) || isSpecialAdmin;
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#0b0e11] flex items-center justify-center">
@@ -261,7 +283,10 @@ const Profile = () => {
               </div>
               
               <div>
-                <p className="text-white font-medium">{profile?.firstName} {profile?.lastName}</p>
+                <p className="text-white font-medium inline-flex items-center gap-2">
+                  <span>{profile?.firstName} {profile?.lastName}</span>
+                  {showAuthorBadge && <BadgeCheck className="w-4 h-4 text-[#1d9bf0]" />}
+                </p>
                 <p className="text-gray-500 text-sm">{profile?.email}</p>
                 <button
                   onClick={handleAvatarClick}
@@ -326,6 +351,18 @@ const Profile = () => {
                   rows={3}
                   placeholder="Tell us about yourself..."
                   className="w-full px-4 py-3 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#fcd535]/50 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-1">URL ya Account</label>
+                <input
+                  type="url"
+                  name="profileUrl"
+                  value={formData.profileUrl}
+                  onChange={handleInputChange}
+                  placeholder="https://www.umunsimedia.com/your-account"
+                  className="w-full px-4 py-3 bg-[#2b2f36] border border-[#2b2f36] rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-[#fcd535]/50"
                 />
               </div>
               

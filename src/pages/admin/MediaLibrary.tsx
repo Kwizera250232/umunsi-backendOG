@@ -28,7 +28,7 @@ import {
   Lock,
   Database
 } from 'lucide-react';
-import { apiClient } from '../../services/api';
+import { apiClient, getServerBaseUrl, resolveAssetUrl } from '../../services/api';
 import MediaLibraryModal from '../../components/MediaLibraryModal';
 
 // Helper function to format file size
@@ -138,12 +138,6 @@ const DocumentViewer: React.FC<{
       </div>
     </div>
   );
-};
-
-// Helper function to get server base URL
-const getServerBaseUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-  return apiUrl.replace('/api', '');
 };
 
 interface MediaFile {
@@ -524,12 +518,19 @@ const MediaLibrary: React.FC = () => {
                         <div className="aspect-square p-4 flex flex-col items-center justify-center">
                           {file.mimeType.startsWith('image/') ? (
                             <img
-                              src={`${getServerBaseUrl()}${file.thumbnailUrl || file.url}`}
+                              src={resolveAssetUrl(file.thumbnailUrl || file.url)}
                               alt={file.originalName}
                               className="w-full h-full object-cover rounded-lg"
                               onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                const sibling = e.currentTarget.nextElementSibling;
+                                const img = e.currentTarget;
+                                const fallbackUrl = resolveAssetUrl(file.url);
+                                if (img.dataset.fallbackApplied !== '1' && fallbackUrl && img.src !== fallbackUrl) {
+                                  img.dataset.fallbackApplied = '1';
+                                  img.src = fallbackUrl;
+                                  return;
+                                }
+                                img.style.display = 'none';
+                                const sibling = img.nextElementSibling;
                                 if (sibling) (sibling as HTMLElement).style.display = 'flex';
                               }}
                             />
@@ -743,9 +744,19 @@ const MediaLibrary: React.FC = () => {
             <div className="w-full h-full p-4 flex items-center justify-center">
               {selectedMediaFile.mimeType.startsWith('image/') ? (
                 <img
-                  src={`${getServerBaseUrl()}${selectedMediaFile.thumbnailUrl || selectedMediaFile.url}`}
+                  src={resolveAssetUrl(selectedMediaFile.thumbnailUrl || selectedMediaFile.url)}
                   alt={selectedMediaFile.originalName}
                   className="max-w-full max-h-full object-contain rounded-2xl"
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    const fullImage = resolveAssetUrl(selectedMediaFile.url);
+                    if (img.dataset.fallbackApplied !== '1' && fullImage && img.src !== fullImage) {
+                      img.dataset.fallbackApplied = '1';
+                      img.src = fullImage;
+                      return;
+                    }
+                    img.src = '/images/logo.png';
+                  }}
                 />
               ) : selectedMediaFile.mimeType.startsWith('video/') ? (
                 <video

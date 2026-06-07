@@ -138,7 +138,7 @@ const Religion = () => {
           <div className="absolute -bottom-20 -left-20 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
         </div>
         
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-16">
+        <div className="relative z-10 px-4 py-16">
           <div className="text-center">
             <div className="inline-flex items-center gap-2 bg-[#1e2329] border border-[#2b2f36] px-4 py-2 rounded-full mb-6">
               <Heart className="w-5 h-5 text-emerald-400" />
@@ -159,7 +159,7 @@ const Religion = () => {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className="px-4 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Main Content - Left */}
           <div className="lg:col-span-3 space-y-8">

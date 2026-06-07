@@ -253,7 +253,7 @@ router.post('/kpay/initialize', authenticateToken, async (req, res) => {
       retailerid: (process.env.KPAY_RETAILER_ID || '').trim(),
       returl: `${backendBaseUrl}/api/payments/kpay/webhook`,
       redirecturl: `${frontendBaseUrl}/subscriber/account?payment=callback&provider=kpay&txRef=${encodeURIComponent(txRef)}`,
-      logourl: `${frontendBaseUrl}/images/logo.png`
+      logourl: `${frontendBaseUrl}/images/site-logo.png`
     };
 
     // Add msisdn only if provided (required for mobile methods, optional for cards)

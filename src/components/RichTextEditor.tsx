@@ -8,6 +8,7 @@ import {
   Quote, 
   Link, 
   Image as ImageIcon,
+  Upload,
   Type,
   AlignLeft,
   AlignCenter,
@@ -34,8 +35,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const editorRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isFocused, setIsFocused] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const [showMediaLibrary, setShowMediaLibrary] = useState(false);
   const [showImageSourceMenu, setShowImageSourceMenu] = useState(false);
+  const [showUrlInsertMenu, setShowUrlInsertMenu] = useState(false);
+  const [urlInputValue, setUrlInputValue] = useState('');
+  const [urlPreviewHtml, setUrlPreviewHtml] = useState('');
+  const [urlPreviewValid, setUrlPreviewValid] = useState(false);
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
@@ -152,6 +158,51 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     handleContentChange();
   };
 
+  const handleDroppedImage = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('files', file);
+      const uploaded = await apiClient.uploadMediaFiles(formData);
+      const uploadedFile = uploaded[0];
+      if (!uploadedFile) {
+        alert('Upload failed. Please try again.');
+        return;
+      }
+      const imageUrl = normalizeImageUrl(uploadedFile.url);
+      insertImageBlock(imageUrl, uploadedFile.originalName || file.name);
+    } catch (error) {
+      console.error('Failed to upload dropped image:', error);
+      alert('Failed to upload image. Please try again.');
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    setIsDragOver(false);
+    // Handle image file drops first
+    if (e.dataTransfer.files.length > 0) {
+      const imageFile = Array.from(e.dataTransfer.files).find((f) => f.type.startsWith('image/'));
+      if (imageFile) {
+        e.preventDefault();
+        handleDroppedImage(imageFile);
+        return;
+      }
+    }
+
+    e.preventDefault();
+    const html = e.dataTransfer.getData('text/html');
+    const text = e.dataTransfer.getData('text/plain');
+
+    if (html) {
+      const cleanedHtml = sanitizePastedHtml(html);
+      document.execCommand('insertHTML', false, cleanedHtml);
+    } else if (text) {
+      const safeText = escapeHtml(text).replace(/\n/g, '<br>');
+      document.execCommand('insertHTML', false, safeText);
+    }
+
+    handleContentChange();
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // Handle keyboard shortcuts
     if (e.ctrlKey || e.metaKey) {
@@ -181,19 +232,12 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const insertImageBlock = (imageUrl: string, defaultAlt: string = 'Inserted image') => {
-    const inlineTextInput = prompt('Enter text below image (optional)') || '';
-    const captionInput = prompt('Enter caption (optional)') || '';
-
     const safeImageUrl = escapeHtml(imageUrl);
-    const safeInlineText = escapeHtml(inlineTextInput.trim());
-    const safeCaption = escapeHtml(captionInput.trim());
     const safeAlt = escapeHtml(defaultAlt);
 
     const imageBlockHtml = `
       <div class="image-text-block" style="margin: 10px 0;">
-        <img src="${safeImageUrl}" alt="${safeCaption || safeAlt}" class="resizable-image" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; display: block;" data-original-width="400" data-original-height="300" />
-        ${safeInlineText ? `<p style="margin-top: 8px;">${safeInlineText}</p>` : ''}
-        ${safeCaption ? `<p style="margin-top: 4px; font-size: 13px; color: #9ca3af;"><em>${safeCaption}</em></p>` : ''}
+        <img src="${safeImageUrl}" alt="${safeAlt}" class="resizable-image" style="max-width: 100%; height: auto; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); cursor: pointer; display: block;" data-original-width="400" data-original-height="300" />
       </div>
       <p><br></p>
     `;
@@ -215,6 +259,20 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     setShowImageSourceMenu(false);
     fileInputRef.current?.click();
   };
+
+  // Also close image menu when clicking outside
+  useEffect(() => {
+    if (!showImageSourceMenu && !showUrlInsertMenu) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.rich-text-editor')) {
+        setShowImageSourceMenu(false);
+        setShowUrlInsertMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [showImageSourceMenu, showUrlInsertMenu]);
 
   const handleMediaSelect = (media: MediaFile) => {
     const imageUrl = normalizeImageUrl(media.url);
@@ -249,10 +307,95 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   };
 
   const insertLink = () => {
-    const url = prompt('Enter URL:');
-    if (url) {
-      execCommand('createLink', url);
+    setShowUrlInsertMenu((prev) => !prev);
+    setShowImageSourceMenu(false);
+  };
+
+  const getYouTubeVideoId = (url: string) => {
+    try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./, '');
+
+      if (host === 'youtu.be') {
+        return parsed.pathname.split('/').filter(Boolean)[0] || null;
+      }
+
+      if (host.includes('youtube.com')) {
+        const id = parsed.searchParams.get('v');
+        if (id) return id;
+
+        const parts = parsed.pathname.split('/').filter(Boolean);
+        const markerIndex = parts.findIndex((part) => part === 'embed' || part === 'shorts');
+        if (markerIndex !== -1 && parts[markerIndex + 1]) {
+          return parts[markerIndex + 1];
+        }
+      }
+    } catch {
+      return null;
     }
+
+    return null;
+  };
+
+  const buildEmbedHtmlFromUrl = (rawUrl: string) => {
+    const url = rawUrl.trim();
+    if (!url) return '';
+
+    const youtubeId = getYouTubeVideoId(url);
+    if (youtubeId) {
+      const origin = typeof window !== 'undefined' ? window.location.origin : 'https://www.umunsi.com';
+      const params = `rel=0&modestbranding=1&playsinline=1&origin=${encodeURIComponent(origin)}`;
+      return `
+        <div class="not-prose my-6 overflow-hidden rounded-xl border border-[#2b2f36] bg-[#0b0e11]">
+          <iframe
+            src="https://www.youtube-nocookie.com/embed/${youtubeId}?${params}"
+            title="YouTube video"
+            class="w-full aspect-video"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowfullscreen
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"
+          ></iframe>
+        </div>
+      `;
+    }
+
+    if (/(^https?:\/\/)?(www\.)?instagram\.com\//i.test(url)) {
+      return `
+        <blockquote class="instagram-media not-prose my-6" data-instgrm-permalink="${url}" data-instgrm-version="14">
+          <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>
+        </blockquote>
+      `;
+    }
+
+    if (/(^https?:\/\/)?(www\.)?(x\.com|twitter\.com)\//i.test(url)) {
+      return `
+        <blockquote class="twitter-tweet not-prose my-6">
+          <a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a>
+        </blockquote>
+      `;
+    }
+
+    return `<p><a href="${url}" target="_blank" rel="noopener noreferrer">${url}</a></p>`;
+  };
+
+  const handleGenerateUrlPreview = () => {
+    const embed = buildEmbedHtmlFromUrl(urlInputValue);
+    setUrlPreviewHtml(embed || '<p class="text-gray-400">Invalid URL</p>');
+    setUrlPreviewValid(Boolean(embed));
+  };
+
+  const handleInsertUrlEmbed = () => {
+    const embed = buildEmbedHtmlFromUrl(urlInputValue);
+    if (!embed) return;
+
+    document.execCommand('insertHTML', false, `${embed}<p><br></p>`);
+    editorRef.current?.focus();
+    handleContentChange();
+    setShowUrlInsertMenu(false);
+    setUrlInputValue('');
+    setUrlPreviewHtml('');
+    setUrlPreviewValid(false);
   };
 
   const addImageResizeHandles = () => {
@@ -715,16 +858,101 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
         {/* Insert */}
         <div className="flex items-center gap-1 border-r border-[#2b2f36] pr-2">
-          <ToolbarButton
-            onClick={insertLink}
-            icon={<Link className="w-4 h-4" />}
-            title="Insert Link"
-          />
-          <ToolbarButton
-            onClick={() => setShowImageSourceMenu((prev) => !prev)}
-            icon={<ImageIcon className="w-4 h-4" />}
-            title="Insert Image"
-          />
+          {/* Link button with relative dropdown */}
+          <div className="relative">
+            <ToolbarButton
+              onClick={insertLink}
+              icon={<Link className="w-4 h-4" />}
+              title="Insert Link / YouTube / Instagram"
+              isActive={showUrlInsertMenu}
+            />
+            {showUrlInsertMenu && (
+              <div className="absolute top-10 left-0 z-30 bg-[#0b0e11] border border-[#2b2f36] rounded-lg shadow-xl p-3 w-[340px] sm:w-[380px]">
+                <p className="text-xs text-gray-400 mb-2">Insert URL (YouTube, Instagram, X/Twitter or normal link)</p>
+                <input
+                  type="url"
+                  value={urlInputValue}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    setUrlInputValue(nextValue);
+                    const nextPreview = buildEmbedHtmlFromUrl(nextValue);
+                    setUrlPreviewHtml(nextPreview || (nextValue.trim() ? '<p class="text-gray-400">Invalid URL</p>' : ''));
+                    setUrlPreviewValid(Boolean(nextPreview));
+                  }}
+                  placeholder="https://..."
+                  className="w-full px-3 py-2 rounded bg-[#11151b] border border-[#2b2f36] text-sm text-gray-100"
+                />
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleGenerateUrlPreview}
+                    className="px-3 py-1.5 rounded bg-[#2b2f36] text-gray-200 text-xs"
+                  >
+                    Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleInsertUrlEmbed}
+                    disabled={!urlPreviewValid}
+                    className="px-3 py-1.5 rounded bg-[#fcd535] text-[#0b0e11] font-semibold text-xs disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Insert in Article
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowUrlInsertMenu(false); setUrlInputValue(''); setUrlPreviewHtml(''); setUrlPreviewValid(false); }}
+                    className="px-3 py-1.5 rounded bg-[#2b2f36] text-gray-400 text-xs ml-auto"
+                  >
+                    ✕
+                  </button>
+                </div>
+                {urlPreviewHtml && (
+                  <div className="mt-3 border border-[#2b2f36] rounded p-2 max-h-52 overflow-auto">
+                    <div dangerouslySetInnerHTML={{ __html: urlPreviewHtml }} />
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Image button — prominent, with relative dropdown */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowImageSourceMenu((prev) => !prev)}
+              title="Insert Image (from library or computer)"
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                showImageSourceMenu
+                  ? 'bg-[#fcd535] text-[#0b0e11]'
+                  : 'bg-[#fcd535]/15 text-[#fcd535] hover:bg-[#fcd535]/25 border border-[#fcd535]/40'
+              }`}
+            >
+              <ImageIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">Add Image</span>
+            </button>
+            {showImageSourceMenu && (
+              <div className="absolute top-10 left-0 z-20 bg-[#0b0e11] border border-[#2b2f36] rounded-lg shadow-xl p-2 min-w-[210px]">
+                <p className="text-[0.65rem] text-gray-500 uppercase tracking-wider px-3 py-1">Choose source</p>
+                <button
+                  type="button"
+                  onClick={chooseImageFromLibrary}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded text-sm text-gray-200 hover:bg-[#1e2329]"
+                >
+                  <ImageIcon className="w-4 h-4 text-[#fcd535]" />
+                  Media Library
+                </button>
+                <button
+                  type="button"
+                  onClick={chooseImageFromComputer}
+                  className="w-full flex items-center gap-2 px-3 py-2.5 rounded text-sm text-gray-200 hover:bg-[#1e2329]"
+                >
+                  <Upload className="w-4 h-4 text-blue-400" />
+                  Upload from Device
+                </button>
+              </div>
+            )}
+          </div>
+
           <ToolbarButton
             onClick={() => execCommand('formatBlock', 'blockquote')}
             icon={<Quote className="w-4 h-4" />}
@@ -745,25 +973,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             title="Redo (Ctrl+Shift+Z)"
           />
         </div>
-
-        {showImageSourceMenu && (
-          <div className="absolute top-12 left-[285px] z-20 bg-[#0b0e11] border border-[#2b2f36] rounded-lg shadow-xl p-2 min-w-[240px]">
-            <button
-              type="button"
-              onClick={chooseImageFromLibrary}
-              className="w-full text-left px-3 py-2 rounded text-sm text-gray-200 hover:bg-[#1e2329]"
-            >
-              Choose Uploaded Image
-            </button>
-            <button
-              type="button"
-              onClick={chooseImageFromComputer}
-              className="w-full text-left px-3 py-2 rounded text-sm text-gray-200 hover:bg-[#1e2329]"
-            >
-              Choose from Computer
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Editor */}
@@ -772,16 +981,48 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         contentEditable
         onInput={handleContentChange}
         onPaste={handlePaste}
+        onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }}
+        onDragLeave={() => setIsDragOver(false)}
+        onDrop={handleDrop}
         onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
         onBlur={() => setIsFocused(false)}
-        className={`min-h-[300px] p-4 focus:outline-none text-white bg-[#0b0e11] rounded-b-xl ${
-          isFocused ? 'ring-2 ring-[#fcd535]/50' : ''
+        className={`min-h-[300px] p-4 focus:outline-none text-white bg-[#0b0e11] transition-all ${
+          isDragOver
+            ? 'ring-2 ring-[#fcd535] bg-[#fcd535]/5'
+            : isFocused
+            ? 'ring-2 ring-[#fcd535]/50'
+            : ''
         }`}
         style={{ minHeight: '300px', color: 'white' }}
         data-placeholder={placeholder}
         suppressContentEditableWarning={true}
       />
+
+      {/* Drag & Drop hint / Quick image insert bar */}
+      <div className="flex items-center justify-between px-4 py-2 border-t border-[#2b2f36] bg-[#1e2329] rounded-b-xl">
+        <p className="text-xs text-gray-500">
+          {isDragOver ? '📸 Drop image here to upload!' : 'Drag & drop images directly into the editor, or use the '}
+          {!isDragOver && (
+            <button
+              type="button"
+              onClick={() => setShowMediaLibrary(true)}
+              className="text-[#fcd535] hover:underline"
+            >
+              Add Image
+            </button>
+          )}
+          {!isDragOver && ' button above'}
+        </p>
+        <button
+          type="button"
+          onClick={() => setShowMediaLibrary(true)}
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-[#fcd535] text-[#0b0e11] text-xs font-semibold rounded-lg hover:bg-[#f0b90b] transition-colors"
+        >
+          <ImageIcon className="w-3.5 h-3.5" />
+          Insert Image
+        </button>
+      </div>
 
       {/* Placeholder */}
       {!value && (

@@ -136,7 +136,7 @@ const Images = () => {
 
   return (
     <div className="min-h-screen bg-[#0b0e11] py-8">
-      <div className="max-w-7xl mx-auto px-4">
+      <div className="px-4">
         {/* Header */}
         <div className="text-center mb-10">
           <div className="inline-flex items-center gap-2 bg-[#1e2329] border border-[#2b2f36] px-4 py-2 rounded-full mb-6">
