@@ -28,6 +28,12 @@ import { apiClient, PremiumDashboardPost, SupportPayment, resolveAssetUrl } from
 import { useAuth } from '../contexts/AuthContext';
 
 const PREMIUM_AMOUNT = 500;
+const SUPPORT_PHONE = '0791859465';
+const SUPPORT_PHONE_E164 = '+250791859465';
+const SUPPORT_WHATSAPP = '250791859465';
+const SUPPORT_EMAIL = 'info@umunsi.rw';
+
+type DashboardTab = 'overview' | 'articles' | 'contact';
 
 const getImageUrl = (url?: string) => {
   if (!url) return 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=400&h=250&fit=crop';
@@ -79,6 +85,7 @@ const PremiumDashboard = () => {
 
   const [contactForm, setContactForm] = useState({ name: '', email: '', subject: '', message: '' });
   const [contactSent, setContactSent] = useState(false);
+  const [activeTab, setActiveTab] = useState<DashboardTab>('overview');
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -187,7 +194,7 @@ const PremiumDashboard = () => {
     const body = encodeURIComponent(
       `Izina: ${contactForm.name}\nImeyili: ${contactForm.email}\n\n${contactForm.message}`
     );
-    window.location.href = `mailto:info@umunsi.rw?subject=${encodeURIComponent(contactForm.subject || 'Premium Support')}&body=${body}`;
+    window.location.href = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(contactForm.subject || 'Premium Support')}&body=${body}`;
     setContactSent(true);
     setTimeout(() => setContactSent(false), 4000);
   };
@@ -203,6 +210,18 @@ const PremiumDashboard = () => {
     { icon: Zap, title: 'Amakuru y\'Igihe', desc: 'Bona amakuru mashya mbere y\'abandi' },
     { icon: Shield, title: 'Nta Mamaza', desc: 'Uburambe busa nta mamaza mu nkuru za premium' },
     { icon: Star, title: 'Inkunga y\'Itangazamakuru', desc: 'Fasha Umunsi gukomeza gutanga amakuru y\'ukuri' }
+  ];
+
+  const paymentSteps = [
+    { step: '1', title: 'Hitamo uburyo', desc: 'MoMo cyangwa ikarita ya banki' },
+    { step: '2', title: 'Emeza kwishyura', desc: 'Kurikiza amabwiriza kuri telefoni yawe' },
+    { step: '3', title: 'Soma Premium', desc: 'Uburenganzira bufungurwa ako kanya' }
+  ];
+
+  const dashboardTabs: Array<{ id: DashboardTab; label: string }> = [
+    { id: 'overview', label: 'Ahabanza' },
+    { id: 'articles', label: 'Inkuru za Premium' },
+    { id: 'contact', label: 'Twandikire' }
   ];
 
   if (loading) {
@@ -324,11 +343,63 @@ const PremiumDashboard = () => {
           </div>
         )}
 
+        {/* Tab navigation */}
+        <div className="mb-8 flex flex-wrap gap-2 border-b border-[#2b2f36] pb-1">
+          {dashboardTabs.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2.5 rounded-t-xl text-sm font-semibold transition-all ${
+                activeTab === tab.id
+                  ? 'bg-[#fcd535] text-[#0b0e11]'
+                  : 'text-gray-400 hover:text-white hover:bg-[#181a20]'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
           {/* Main column */}
           <div className="xl:col-span-2 space-y-8">
-            {/* Benefits */}
-            {!activePremium && (
+            {activeTab === 'overview' && !activePremium && (
+              <section className="rounded-2xl border border-[#fcd535]/25 bg-gradient-to-br from-[#181a20] via-[#1a1d24] to-[#0b0e11] p-6 md:p-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                  <div>
+                    <p className="text-[#fcd535] text-xs font-bold uppercase tracking-[0.2em] mb-2">Umunsi Premium</p>
+                    <h2 className="text-2xl md:text-3xl font-black text-white mb-2">
+                      {PREMIUM_AMOUNT.toLocaleString()} RWF <span className="text-lg font-semibold text-gray-400">/ ukwezi</span>
+                    </h2>
+                    <p className="text-gray-400 max-w-md leading-relaxed">
+                      Wishyura vuba, fungura Premium ako kanya, kandi usome inkuru zihariye zanditswe n&apos;abanyamakuru bacu.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-semibold border border-emerald-500/20">
+                      <Shield className="w-3.5 h-3.5" /> Byemewe na KPay
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#fcd535]/10 text-[#fcd535] text-xs font-semibold border border-[#fcd535]/20">
+                      <Zap className="w-3.5 h-3.5" /> Ako kanya
+                    </span>
+                  </div>
+                </div>
+                <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {paymentSteps.map(({ step, title, desc }) => (
+                    <div key={step} className="rounded-xl bg-[#0b0e11]/70 border border-[#2b2f36] p-4">
+                      <span className="inline-flex w-8 h-8 items-center justify-center rounded-full bg-[#fcd535] text-[#0b0e11] text-sm font-black mb-2">
+                        {step}
+                      </span>
+                      <p className="text-white font-semibold text-sm">{title}</p>
+                      <p className="text-gray-500 text-xs mt-1">{desc}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'overview' && !activePremium && (
               <section>
                 <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-[#fcd535]" />
@@ -348,7 +419,7 @@ const PremiumDashboard = () => {
               </section>
             )}
 
-            {/* Premium articles */}
+            {(activeTab === 'overview' || activeTab === 'articles') && (
             <section>
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-bold text-white flex items-center gap-2">
@@ -437,9 +508,9 @@ const PremiumDashboard = () => {
                 </div>
               )}
             </section>
+            )}
 
-            {/* Payment history */}
-            {payments.length > 0 && (
+            {activeTab === 'overview' && payments.length > 0 && (
               <section>
                 <h2 className="text-lg font-bold text-white mb-4 flex items-center gap-2">
                   <CreditCard className="w-5 h-5 text-[#fcd535]" />
@@ -479,6 +550,122 @@ const PremiumDashboard = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {activeTab === 'contact' && (
+              <section className="rounded-2xl border border-[#2b2f36] overflow-hidden bg-[#181a20]">
+                <div className="relative px-6 py-8 border-b border-[#2b2f36] bg-gradient-to-r from-[#fcd535]/15 via-[#181a20] to-emerald-500/10">
+                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmY2Q1MzUiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0djItSDI0di-2aDEyek0zNiAyNHYtMkg0djJoMzJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-40" />
+                  <div className="relative">
+                    <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+                      <Headphones className="w-6 h-6 text-[#fcd535]" />
+                      Twandikire — Turi hano kugufasha
+                    </h2>
+                    <p className="text-gray-400 mt-2 max-w-xl">
+                      Ufite ikibazo ku kwishyura, Premium, cyangwa konti yawe? Vugana natwe — tuzagusubiza vuba.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <a
+                    href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent('Muraho Umunsi, nshaka ubufasha bwa Premium')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group rounded-2xl border border-[#25d366]/30 bg-gradient-to-br from-[#25d366]/10 to-[#0b0e11] p-5 hover:border-[#25d366]/60 transition-all"
+                  >
+                    <MessageCircle className="w-8 h-8 text-[#25d366] mb-3" />
+                    <p className="text-white font-bold group-hover:text-[#25d366] transition-colors">WhatsApp — Byihuse</p>
+                    <p className="text-gray-400 text-sm mt-1">{SUPPORT_PHONE}</p>
+                    <p className="text-[#25d366] text-xs mt-3 font-semibold">Kanda hano uvugane natwe →</p>
+                  </a>
+
+                  <a
+                    href={`tel:${SUPPORT_PHONE_E164}`}
+                    className="group rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-[#0b0e11] p-5 hover:border-emerald-500/60 transition-all"
+                  >
+                    <Phone className="w-8 h-8 text-emerald-400 mb-3" />
+                    <p className="text-white font-bold group-hover:text-emerald-400 transition-colors">Hamagara</p>
+                    <p className="text-gray-400 text-sm mt-1">{SUPPORT_PHONE_E164}</p>
+                    <p className="text-emerald-400 text-xs mt-3 font-semibold">Duhabwa ubufasha mu gihe cy&apos;akazi</p>
+                  </a>
+
+                  <a
+                    href={`mailto:${SUPPORT_EMAIL}`}
+                    className="group rounded-2xl border border-[#fcd535]/30 bg-gradient-to-br from-[#fcd535]/10 to-[#0b0e11] p-5 hover:border-[#fcd535]/60 transition-all"
+                  >
+                    <Mail className="w-8 h-8 text-[#fcd535] mb-3" />
+                    <p className="text-white font-bold group-hover:text-[#fcd535] transition-colors">Imeyili</p>
+                    <p className="text-gray-400 text-sm mt-1">{SUPPORT_EMAIL}</p>
+                    <p className="text-[#fcd535] text-xs mt-3 font-semibold">Twohereza ubutumwa bwawe</p>
+                  </a>
+
+                  <div className="rounded-2xl border border-blue-500/30 bg-gradient-to-br from-blue-500/10 to-[#0b0e11] p-5">
+                    <MapPin className="w-8 h-8 text-blue-400 mb-3" />
+                    <p className="text-white font-bold">Aho duherereye</p>
+                    <p className="text-gray-400 text-sm mt-1">Kigali, Rwanda</p>
+                    <p className="text-blue-400 text-xs mt-3">Umunsi.com — Itangazamakuru ry&apos;u Rwanda</p>
+                  </div>
+                </div>
+
+                <div className="px-6 pb-6">
+                  <div className="rounded-2xl border border-[#2b2f36] bg-[#0b0e11] p-5">
+                    <p className="text-white font-semibold mb-4 flex items-center gap-2">
+                      <Send className="w-4 h-4 text-[#fcd535]" />
+                      Ohereza ubutumwa buto
+                    </p>
+                    <form onSubmit={handleContactSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <input
+                        type="text"
+                        placeholder="Izina ryawe"
+                        value={contactForm.name}
+                        onChange={(e) => setContactForm((p) => ({ ...p, name: e.target.value }))}
+                        required
+                        className="w-full px-4 py-3 bg-[#181a20] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50"
+                      />
+                      <input
+                        type="email"
+                        placeholder="Imeyili yawe"
+                        value={contactForm.email}
+                        onChange={(e) => setContactForm((p) => ({ ...p, email: e.target.value }))}
+                        required
+                        className="w-full px-4 py-3 bg-[#181a20] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Insanganyamatsiko (Premium, kwishyura...)"
+                        value={contactForm.subject}
+                        onChange={(e) => setContactForm((p) => ({ ...p, subject: e.target.value }))}
+                        className="w-full md:col-span-2 px-4 py-3 bg-[#181a20] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50"
+                      />
+                      <textarea
+                        placeholder="Andika ubutumwa bwawe hano..."
+                        value={contactForm.message}
+                        onChange={(e) => setContactForm((p) => ({ ...p, message: e.target.value }))}
+                        required
+                        rows={4}
+                        className="w-full md:col-span-2 px-4 py-3 bg-[#181a20] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50 resize-none"
+                      />
+                      <button
+                        type="submit"
+                        className="md:col-span-2 w-full py-3 bg-gradient-to-r from-[#fcd535] to-[#f0b90b] text-[#0b0e11] font-bold rounded-xl hover:opacity-90 transition-opacity flex items-center justify-center gap-2"
+                      >
+                        {contactSent ? (
+                          <>
+                            <CheckCircle className="w-5 h-5" />
+                            Byoherejwe!
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-5 h-5" />
+                            Ohereza Ubutumwa
+                          </>
+                        )}
+                      </button>
+                    </form>
                   </div>
                 </div>
               </section>
@@ -583,125 +770,33 @@ const PremiumDashboard = () => {
               </div>
             )}
 
-            {/* Contact section */}
+            {/* Compact contact (sidebar) */}
             <div className="bg-[#181a20] border border-[#2b2f36] rounded-2xl overflow-hidden">
               <div className="bg-gradient-to-r from-[#1e2329] to-[#181a20] px-5 py-4 border-b border-[#2b2f36]">
                 <h2 className="text-white font-bold flex items-center gap-2">
                   <Headphones className="w-5 h-5 text-[#fcd535]" />
-                  Twandikire
+                  Ubufasha bwihuse
                 </h2>
-                <p className="text-gray-500 text-sm mt-1">Dufite ikibazo? Turi hano kugufasha.</p>
+                <p className="text-gray-500 text-sm mt-1">Duhabwa ubufasha mu gihe cy&apos;akazi</p>
               </div>
-
-              <div className="p-5 space-y-4">
-                <div className="space-y-3">
-                  <a
-                    href="mailto:info@umunsi.rw"
-                    className="flex items-center gap-3 p-3 rounded-xl bg-[#0b0e11] border border-[#2b2f36] hover:border-[#fcd535]/40 transition-colors group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[#fcd535]/10 flex items-center justify-center shrink-0">
-                      <Mail className="w-5 h-5 text-[#fcd535]" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-white text-sm font-medium group-hover:text-[#fcd535] transition-colors">Imeyili</p>
-                      <p className="text-gray-500 text-xs truncate">info@umunsi.rw</p>
-                    </div>
-                  </a>
-
-                  <a
-                    href="tel:+250788000000"
-                    className="flex items-center gap-3 p-3 rounded-xl bg-[#0b0e11] border border-[#2b2f36] hover:border-[#fcd535]/40 transition-colors group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-                      <Phone className="w-5 h-5 text-emerald-400" />
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-medium group-hover:text-[#fcd535] transition-colors">Telefoni</p>
-                      <p className="text-gray-500 text-xs">+250 788 000 000</p>
-                    </div>
-                  </a>
-
-                  <a
-                    href="https://wa.me/250788000000?text=Muraho%20Umunsi%2C%20nshaka%20ubufasha%20bwa%20Premium"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 p-3 rounded-xl bg-[#0b0e11] border border-[#2b2f36] hover:border-[#25d366]/40 transition-colors group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-[#25d366]/10 flex items-center justify-center shrink-0">
-                      <MessageCircle className="w-5 h-5 text-[#25d366]" />
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-medium group-hover:text-[#25d366] transition-colors">WhatsApp</p>
-                      <p className="text-gray-500 text-xs">Vugana natwe ako kanya</p>
-                    </div>
-                  </a>
-
-                  <div className="flex items-center gap-3 p-3 rounded-xl bg-[#0b0e11] border border-[#2b2f36]">
-                    <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center shrink-0">
-                      <MapPin className="w-5 h-5 text-blue-400" />
-                    </div>
-                    <div>
-                      <p className="text-white text-sm font-medium">Aho duherereye</p>
-                      <p className="text-gray-500 text-xs">Kigali, Rwanda</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="border-t border-[#2b2f36] pt-4">
-                  <p className="text-gray-400 text-sm mb-3 flex items-center gap-1.5">
-                    <Send className="w-4 h-4 text-[#fcd535]" />
-                    Ohereza ubutumwa
-                  </p>
-                  <form onSubmit={handleContactSubmit} className="space-y-3">
-                    <input
-                      type="text"
-                      placeholder="Izina ryawe"
-                      value={contactForm.name}
-                      onChange={(e) => setContactForm((p) => ({ ...p, name: e.target.value }))}
-                      required
-                      className="w-full px-3 py-2.5 bg-[#0b0e11] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50"
-                    />
-                    <input
-                      type="email"
-                      placeholder="Imeyili yawe"
-                      value={contactForm.email}
-                      onChange={(e) => setContactForm((p) => ({ ...p, email: e.target.value }))}
-                      required
-                      className="w-full px-3 py-2.5 bg-[#0b0e11] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Insanganyamatsiko (Premium, kwishyura...)"
-                      value={contactForm.subject}
-                      onChange={(e) => setContactForm((p) => ({ ...p, subject: e.target.value }))}
-                      className="w-full px-3 py-2.5 bg-[#0b0e11] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50"
-                    />
-                    <textarea
-                      placeholder="Andika ubutumwa bwawe hano..."
-                      value={contactForm.message}
-                      onChange={(e) => setContactForm((p) => ({ ...p, message: e.target.value }))}
-                      required
-                      rows={3}
-                      className="w-full px-3 py-2.5 bg-[#0b0e11] border border-[#2b2f36] rounded-xl text-white text-sm placeholder-gray-600 focus:outline-none focus:border-[#fcd535]/50 resize-none"
-                    />
-                    <button
-                      type="submit"
-                      className="w-full py-2.5 bg-[#2b2f36] text-white font-medium rounded-xl hover:bg-[#363a45] transition-colors flex items-center justify-center gap-2 text-sm"
-                    >
-                      {contactSent ? (
-                        <>
-                          <CheckCircle className="w-4 h-4 text-emerald-400" />
-                          Byoherejwe!
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-4 h-4" />
-                          Ohereza Ubutumwa
-                        </>
-                      )}
-                    </button>
-                  </form>
-                </div>
+              <div className="p-4 space-y-2">
+                <a
+                  href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent('Muraho Umunsi, nshaka ubufasha bwa Premium')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-[#0b0e11] border border-[#25d366]/30 hover:border-[#25d366]/60 transition-colors"
+                >
+                  <MessageCircle className="w-5 h-5 text-[#25d366] shrink-0" />
+                  <span className="text-white text-sm font-medium">WhatsApp</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('contact')}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-[#fcd535]/30 text-[#fcd535] text-sm font-semibold hover:bg-[#fcd535]/10 transition-colors"
+                >
+                  Reba uburyo bwo kutwandikira
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
             </div>
 
