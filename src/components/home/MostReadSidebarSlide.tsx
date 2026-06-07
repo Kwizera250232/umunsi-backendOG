@@ -57,10 +57,10 @@ const MostReadSidebarSlide = ({ posts, canSeeViews = false, formatDate }: MostRe
               <Flame className="h-3.5 w-3.5" />
               Live Trend
             </div>
-            <h2 className="mt-2 text-xl md:text-2xl font-black uppercase tracking-tight text-white">
+            <h2 className="mt-2 text-xl md:text-2xl font-black uppercase tracking-tight text-[#fcd535] drop-shadow-sm">
               Ibisomwa Cyane
             </h2>
-            <p className="mt-1 text-xs md:text-sm text-gray-400">
+            <p className="mt-1 text-xs md:text-sm text-gray-300">
               Amakuru yose y&apos;igikombe cy&apos;Isi asangwa hano. ⚽🔥
             </p>
           </div>
