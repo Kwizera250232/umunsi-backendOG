@@ -17,7 +17,7 @@ import {
   Redo
 } from 'lucide-react';
 import MediaLibraryModal from './MediaLibraryModal';
-import { apiClient, MediaFile } from '../services/api';
+import { apiClient, MediaFile, resolveAssetUrl } from '../services/api';
 
 interface RichTextEditorProps {
   value: string;
@@ -43,11 +43,33 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   const [urlPreviewHtml, setUrlPreviewHtml] = useState('');
   const [urlPreviewValid, setUrlPreviewValid] = useState(false);
 
+  const normalizeImageUrl = (url: string) => resolveAssetUrl(url) || url;
+
+  const prepareEditorHtmlForDisplay = (html: string) => {
+    if (!html || typeof window === 'undefined') return html;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div id="editor-root">${html}</div>`, 'text/html');
+    const root = doc.getElementById('editor-root');
+    if (!root) return html;
+
+    root.querySelectorAll('img').forEach((img) => {
+      const src = img.getAttribute('src') || '';
+      const resolved = resolveAssetUrl(src);
+      if (resolved) {
+        img.setAttribute('src', resolved);
+        img.setAttribute('data-original-src', src);
+      }
+      img.classList.add('resizable-image');
+      img.setAttribute('loading', 'lazy');
+    });
+
+    return root.innerHTML;
+  };
+
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
-      console.log('🔄 Setting editor content, value length:', value.length);
-      editorRef.current.innerHTML = value;
-      // Add resize handles to existing images
+      editorRef.current.innerHTML = prepareEditorHtmlForDisplay(value);
       setTimeout(() => {
         addImageResizeHandles();
       }, 100);
@@ -66,18 +88,6 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     document.execCommand(command, false, value);
     editorRef.current?.focus();
     handleContentChange();
-  };
-
-  const getServerBaseUrl = () => {
-    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
-    return apiUrl.replace('/api', '');
-  };
-
-  const normalizeImageUrl = (url: string) => {
-    if (!url) return '';
-    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('//')) return url;
-    if (url.startsWith('/')) return `${getServerBaseUrl()}${url}`;
-    return `${getServerBaseUrl()}/${url}`;
   };
 
   const handleContentChange = () => {

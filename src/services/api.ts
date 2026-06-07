@@ -79,7 +79,10 @@ export const resolveAssetUrl = (url?: string | null) => {
     if (rawValue.startsWith('/')) return `${currentOrigin}${rawValue}`;
     if (rawValue.startsWith('uploads/')) return `${proxiedUploadsBase}/${rawValue.replace(/^uploads\//, '')}`;
     if (rawValue.startsWith('images/')) return `${currentOrigin}/${rawValue}`;
-    return `${proxiedUploadsBase}/${rawValue.replace(/^\.?\//, '')}`;
+    if (!rawValue.includes('/')) {
+      return toProxiedUploadsUrl(`/uploads/media/${rawValue}`);
+    }
+    return toProxiedUploadsUrl(`/uploads/${rawValue.replace(/^\.?\//, '')}`);
   }
 };
 

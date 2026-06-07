@@ -61,7 +61,7 @@ const MostReadSidebarSlide = ({ posts, canSeeViews = false, formatDate }: MostRe
               Ibisomwa Cyane
             </h2>
             <p className="mt-1 text-xs md:text-sm text-gray-400">
-              Abantu barisomeye cyane — ntucikwe! ⚽🔥
+              Amakuru yose y&apos;igikombe cy&apos;Isi asangwa hano. ⚽🔥
             </p>
           </div>
           <div className="hidden sm:flex items-center gap-1">

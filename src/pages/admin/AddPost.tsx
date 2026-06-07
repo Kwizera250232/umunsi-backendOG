@@ -21,7 +21,7 @@ import {
   AlertCircle,
   Sparkles
 } from 'lucide-react';
-import { apiClient, Category, MediaFile } from '../../services/api';
+import { apiClient, Category, MediaFile, resolveAssetUrl } from '../../services/api';
 
 const DEFAULT_EDITORIAL_CATEGORIES = [
   { name: 'Inkuru Nyamukuru', description: 'Inkuru zatoranyijwe nk’izingenzi ku rubuga.' },
@@ -394,7 +394,7 @@ const AddPost: React.FC = () => {
                   <div className="space-y-3">
                     <div className="relative">
                       <img
-                        src={`${import.meta.env.VITE_API_URL || ''}${selectedFeaturedImage.url}`}
+                        src={resolveAssetUrl(selectedFeaturedImage.url)}
                         alt="Featured image preview"
                         className="w-full h-48 object-cover rounded-xl border border-[#2b2f36]"
                         onError={(e) => {

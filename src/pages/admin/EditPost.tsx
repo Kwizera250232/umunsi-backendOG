@@ -21,7 +21,7 @@ import {
   AlertCircle,
   Edit3
 } from 'lucide-react';
-import { apiClient, Category, MediaFile, Post } from '../../services/api';
+import { apiClient, Category, MediaFile, Post, resolveAssetUrl } from '../../services/api';
 import RichTextEditor from '../../components/RichTextEditor';
 import MediaLibraryModal from '../../components/MediaLibraryModal';
 import { useAuth } from '../../contexts/AuthContext';
@@ -450,7 +450,7 @@ const EditPost: React.FC = () => {
                   <div className="space-y-3">
                     <div className="relative">
                       <img
-                        src={`${import.meta.env.VITE_API_URL || ''}${selectedFeaturedImage.url}`}
+                        src={resolveAssetUrl(selectedFeaturedImage.url)}
                         alt="Featured image preview"
                         className="w-full h-48 object-cover rounded-xl border border-[#2b2f36]"
                         onError={(e) => {
