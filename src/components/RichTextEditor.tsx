@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import MediaLibraryModal from './MediaLibraryModal';
 import { apiClient, MediaFile, resolveAssetUrl } from '../services/api';
+import { stripEditorChromeFromHtml } from '../utils/sanitizeArticleHtml';
 
 interface RichTextEditorProps {
   value: string;
@@ -72,35 +73,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const normalizeImageUrl = (url: string) => resolveAssetUrl(url) || url;
 
-  const sanitizeEditorHtmlForSave = (html: string) => {
-    if (!html || typeof window === 'undefined') return html;
-
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(`<div id="editor-root">${html}</div>`, 'text/html');
-    const root = doc.getElementById('editor-root');
-    if (!root) return html;
-
-    root.querySelectorAll('.resize-handle, .image-controls').forEach((node) => node.remove());
-
-    root.querySelectorAll('.image-container').forEach((container) => {
-      const image = container.querySelector('img');
-      const parent = container.parentElement;
-      if (image && parent) {
-        parent.insertBefore(image, container);
-      }
-      container.remove();
-    });
-
-    root.querySelectorAll('.selected').forEach((node) => node.classList.remove('selected'));
-
-    root.querySelectorAll('figcaption.umunsi-caption').forEach((caption) => {
-      if (!caption.textContent?.trim()) {
-        caption.remove();
-      }
-    });
-
-    return root.innerHTML;
-  };
+  const sanitizeEditorHtmlForSave = (html: string) => stripEditorChromeFromHtml(html);
 
   const getEditorMaxImageWidth = useCallback(() => {
     if (!editorRef.current) return 900;
@@ -723,6 +696,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const stopResize = () => {
         if (isResizing) {
           image.style.height = 'auto';
+          deselectAllImages();
           handleContentChange();
         }
         isResizing = false;
@@ -811,18 +785,20 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     return button;
   };
 
-  const selectImage = (container: HTMLElement) => {
-    // Remove selection from other images
-    const allContainers = editorRef.current?.querySelectorAll('.image-container');
-    allContainers?.forEach(c => {
-      c.classList.remove('selected');
-      const handles = c.querySelectorAll('.resize-handle');
-      const controls = c.querySelector('.image-controls') as HTMLElement;
-      handles.forEach(h => (h as HTMLElement).style.opacity = '0');
+  const deselectAllImages = () => {
+    if (!editorRef.current) return;
+    editorRef.current.querySelectorAll('.image-container').forEach((container) => {
+      container.classList.remove('selected');
+      container.querySelectorAll('.resize-handle').forEach((handle) => {
+        (handle as HTMLElement).style.opacity = '0';
+      });
+      const controls = container.querySelector('.image-controls') as HTMLElement | null;
       if (controls) controls.style.opacity = '0';
     });
+  };
 
-    // Select current image
+  const selectImage = (container: HTMLElement) => {
+    deselectAllImages();
     container.classList.add('selected');
     const handles = container.querySelectorAll('.resize-handle');
     const controls = container.querySelector('.image-controls') as HTMLElement;
@@ -1197,7 +1173,11 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         onDrop={handleDrop}
         onKeyDown={handleKeyDown}
         onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
+        onBlur={() => {
+          setIsFocused(false);
+          deselectAllImages();
+          handleContentChange();
+        }}
         className={`min-h-[300px] p-4 focus:outline-none text-white bg-[#0b0e11] transition-all ${
           isDragOver
             ? 'ring-2 ring-[#fcd535] bg-[#fcd535]/5'

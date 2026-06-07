@@ -431,6 +431,16 @@ html.day-mode .admin-article-content .umunsi-caption {
   max-width: 100% !important;
 }
 
+.article-content-readable .image-container *,
+.admin-article-content .image-container * {
+  display: none !important;
+}
+
+.article-content-readable .image-container img,
+.admin-article-content .image-container img {
+  display: block !important;
+}
+
 /* Custom scrollbar hiding for mobile navigation */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */

@@ -8,6 +8,8 @@ import AdSenseUnit from '../components/ads/AdSenseUnit';
 import { ADSENSE_SLOTS } from '../constants/adsense';
 import MostReadSidebarSlide from '../components/home/MostReadSidebarSlide';
 import SidebarBannerSlide from '../components/home/SidebarBannerSlide';
+import WorldCupUpdatesBar from '../components/home/WorldCupUpdatesBar';
+import HomeAppPromoSlide from '../components/home/HomeAppPromoSlide';
 
 type SpecialCategoryKey = 'cyamunara' | 'akazi';
 
@@ -429,7 +431,16 @@ const Home = () => {
               </div>
                       </div>
 
+      <WorldCupUpdatesBar />
+
       <div className="w-full px-3 py-4">
+        <HomeAppPromoSlide
+          showAds={showAds}
+          adsBanners={adsBanners}
+          hasBannerContent={hasBannerContent}
+          renderBanner={renderBannerSlot}
+        />
+
         {/* First Section - Inkuru Nyamukuru */}
         <div className="mb-6 rounded-lg overflow-hidden border border-[#2b2f36] bg-[#181a20]">
           <div className="bg-emerald-700 text-white px-4 py-2">

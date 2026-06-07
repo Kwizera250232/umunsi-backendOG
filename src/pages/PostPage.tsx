@@ -25,6 +25,7 @@ import {
   X
 } from 'lucide-react';
 import { apiClient, Post, resolveAssetUrl } from '../services/api';
+import { stripEditorChromeFromHtml } from '../utils/sanitizeArticleHtml';
 import { useAuth } from '../contexts/AuthContext';
 
 declare global {
@@ -150,30 +151,6 @@ const buildParagraphMarkup = (rawText: string) => {
   return sourceParagraphs
     .map((paragraph) => `<p>${paragraph.replace(/\n+/g, '<br />')}</p>`)
     .join('');
-};
-
-const stripEditorChromeFromHtml = (html: string) => {
-  if (!html || typeof window === 'undefined') return html;
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(`<div id="article-root">${html}</div>`, 'text/html');
-  const root = doc.getElementById('article-root');
-  if (!root) return html;
-
-  root.querySelectorAll('.resize-handle, .image-controls').forEach((node) => node.remove());
-
-  root.querySelectorAll('.image-container').forEach((container) => {
-    const image = container.querySelector('img');
-    const parent = container.parentElement;
-    if (image && parent) {
-      parent.insertBefore(image, container);
-    }
-    container.remove();
-  });
-
-  root.querySelectorAll('.selected').forEach((node) => node.classList.remove('selected'));
-
-  return root.innerHTML;
 };
 
 const normalizeArticleHtml = (content?: string) => {
