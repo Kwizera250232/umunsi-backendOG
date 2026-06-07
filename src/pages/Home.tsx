@@ -1,13 +1,11 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, ChevronRight, Heart, Zap, AlertCircle, Mail, Calendar, MapPin, CloudSun, Send, ThumbsUp } from 'lucide-react';
+import { Clock, Eye, ChevronRight, Heart, TrendingUp, Zap, AlertCircle, Mail, Calendar, MapPin, CloudSun, Send, ThumbsUp } from 'lucide-react';
 import { apiClient, Post, Category, ClassifiedAd, AdsBannersState, resolveAssetUrl, extractFirstImageFromHtml } from '../services/api';
 import { clearPublicContentCaches } from '../lib/requestCache';
 import { useAuth } from '../contexts/AuthContext';
 import AdSenseUnit from '../components/ads/AdSenseUnit';
 import { ADSENSE_SLOTS } from '../constants/adsense';
-import MostReadSidebarSlide from '../components/home/MostReadSidebarSlide';
-import SidebarBannerSlide from '../components/home/SidebarBannerSlide';
 
 type SpecialCategoryKey = 'cyamunara' | 'akazi';
 
@@ -371,6 +369,7 @@ const Home = () => {
   const middleTop = topSectionPool[2] || null;
   const middleBottom = topSectionPool[3] || null;
   const rightColumnPosts = topSectionPool.slice(4, 9);
+  const trendingPosts = [...posts].sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0)).slice(0, 6);
   const otherPosts = posts.filter(p => p.id !== mainHighlight?.id);
   const latestPosts = activeTab === 'all' ? posts.slice(0, 8) : filteredPosts.slice(0, 8);
   const breakingNews = posts.slice(0, 5);
@@ -851,18 +850,49 @@ const Home = () => {
               </form>
             </div>
 
-            <MostReadSidebarSlide
-              posts={posts}
-              canSeeViews={canSeeViews}
-              formatDate={formatDate}
-            />
+            {/* Trending Posts */}
+            <div className="bg-[#181a20] rounded-lg overflow-hidden">
+              <div className="p-4 border-b border-[#2b2f36]">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-[#fcd535]" />
+                  Ibisomwa Cyane
+                </h2>
+              </div>
+              
+              <div className="divide-y divide-[#2b2f36]">
+                {trendingPosts.map((post, index) => (
+                  <Link key={post.id} to={`/post/${post.slug}`} className="flex gap-3 p-4 hover:bg-[#1e2329] transition-colors group">
+                    <span className={`w-8 h-8 rounded flex items-center justify-center font-bold text-sm flex-shrink-0 ${
+                      index < 3 ? 'bg-[#fcd535] text-[#0b0e11]' : 'bg-[#2b2f36] text-gray-400'
+                    }`}>
+                      {index + 1}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-gray-300 text-sm group-hover:text-[#fcd535] transition-colors line-clamp-2">
+                        {post.title}
+                      </h3>
+                      {canSeeViews && (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 mt-1">
+                          <Eye className="w-3 h-3" />
+                          {post.viewCount}
+                        </div>
+                      )}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
 
-            <SidebarBannerSlide
-              showAds={showAds}
-              adsBanners={adsBanners}
-              hasBannerContent={hasBannerContent}
-              renderBanner={renderBannerSlot}
-            />
+            {showAds && hasBannerContent('sidebar300x250') && (
+              <div className="bg-[#181a20] rounded-lg overflow-hidden">
+                <div className="p-2 border-b border-[#2b2f36]">
+                  <p className="text-gray-500 text-[10px] text-center uppercase tracking-wider">Kwamamaza</p>
+                </div>
+                <div className="p-3">
+                  {renderBannerSlot('sidebar300x250', '300 x 250 px', 'aspect-[300/250] rounded-lg overflow-hidden bg-[#0b0e11]')}
+                </div>
+              </div>
+            )}
 
             {/* Categories List */}
             <div className="bg-[#181a20] rounded-lg overflow-hidden">

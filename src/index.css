@@ -415,6 +415,22 @@ html.day-mode .admin-article-content .umunsi-caption {
   display: none;
 }
 
+/* Never show editor resize UI on published articles */
+.article-content-readable .resize-handle,
+.article-content-readable .image-controls,
+.admin-article-content .resize-handle,
+.admin-article-content .image-controls {
+  display: none !important;
+}
+
+.article-content-readable .image-container,
+.admin-article-content .image-container {
+  display: block !important;
+  outline: none !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+
 /* Custom scrollbar hiding for mobile navigation */
 .scrollbar-hide {
   -ms-overflow-style: none;  /* Internet Explorer 10+ */

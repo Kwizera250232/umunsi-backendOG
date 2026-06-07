@@ -72,6 +72,36 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const normalizeImageUrl = (url: string) => resolveAssetUrl(url) || url;
 
+  const sanitizeEditorHtmlForSave = (html: string) => {
+    if (!html || typeof window === 'undefined') return html;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(`<div id="editor-root">${html}</div>`, 'text/html');
+    const root = doc.getElementById('editor-root');
+    if (!root) return html;
+
+    root.querySelectorAll('.resize-handle, .image-controls').forEach((node) => node.remove());
+
+    root.querySelectorAll('.image-container').forEach((container) => {
+      const image = container.querySelector('img');
+      const parent = container.parentElement;
+      if (image && parent) {
+        parent.insertBefore(image, container);
+      }
+      container.remove();
+    });
+
+    root.querySelectorAll('.selected').forEach((node) => node.classList.remove('selected'));
+
+    root.querySelectorAll('figcaption.umunsi-caption').forEach((caption) => {
+      if (!caption.textContent?.trim()) {
+        caption.remove();
+      }
+    });
+
+    return root.innerHTML;
+  };
+
   const getEditorMaxImageWidth = useCallback(() => {
     if (!editorRef.current) return 900;
     return Math.max(320, editorRef.current.clientWidth - 32);
@@ -170,7 +200,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
   const handleContentChange = () => {
     if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+      onChange(sanitizeEditorHtmlForSave(editorRef.current.innerHTML));
     }
   };
 

@@ -13,6 +13,7 @@ import {
   ChevronRight,
   AlertCircle,
   Send,
+  TrendingUp,
   Facebook,
   Twitter,
   Linkedin,
@@ -151,6 +152,30 @@ const buildParagraphMarkup = (rawText: string) => {
     .join('');
 };
 
+const stripEditorChromeFromHtml = (html: string) => {
+  if (!html || typeof window === 'undefined') return html;
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(`<div id="article-root">${html}</div>`, 'text/html');
+  const root = doc.getElementById('article-root');
+  if (!root) return html;
+
+  root.querySelectorAll('.resize-handle, .image-controls').forEach((node) => node.remove());
+
+  root.querySelectorAll('.image-container').forEach((container) => {
+    const image = container.querySelector('img');
+    const parent = container.parentElement;
+    if (image && parent) {
+      parent.insertBefore(image, container);
+    }
+    container.remove();
+  });
+
+  root.querySelectorAll('.selected').forEach((node) => node.classList.remove('selected'));
+
+  return root.innerHTML;
+};
+
 const normalizeArticleHtml = (content?: string) => {
   const raw = String(content || '').trim();
   if (!raw) return '';
@@ -166,6 +191,8 @@ const normalizeArticleHtml = (content?: string) => {
   }
 
   html = html.replace(/<p>\s*((?:https?:\/\/)[^<\s]+)\s*<\/p>/gi, (_match, url) => renderStandaloneUrlBlock(url));
+
+  html = stripEditorChromeFromHtml(html);
 
   return html.replace(
     /<img([^>]*)src="([^"]*)"([^>]*)>/gi,
@@ -561,7 +588,12 @@ const PostPage = () => {
         const postsResponse = await apiClient.getPosts({ limit: 20, status: 'PUBLISHED' });
         if (postsResponse?.data) {
           // Get latest posts for sidebar
-          setLatestPosts(postsResponse.data.filter(p => p.id !== foundPost.id).slice(0, 5));
+          setLatestPosts(
+            [...postsResponse.data]
+              .filter((p) => p.id !== foundPost.id)
+              .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+              .slice(0, 5)
+          );
           
           // Get related posts from same category
           if (foundPost.category) {
@@ -1203,8 +1235,8 @@ const PostPage = () => {
             {/* Latest News */}
             <div className="bg-[#181a20] rounded-lg p-4">
               <h3 className="text-base font-bold text-white mb-3 flex items-center gap-2">
-                <span className="w-1 h-5 bg-[#fcd535] rounded"></span>
-                Amakuru Mashya
+                <TrendingUp className="w-5 h-5 text-[#fcd535]" />
+                Ibisomwa Cyane
               </h3>
               <div className="space-y-3">
                 {latestPosts.map((lPost, index) => (
