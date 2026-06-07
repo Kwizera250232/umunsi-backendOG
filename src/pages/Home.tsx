@@ -1,19 +1,38 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Clock, Eye, ChevronRight, Loader2, Heart, TrendingUp, Zap, AlertCircle, Mail, Calendar, MapPin, CloudSun, Send, ThumbsUp } from 'lucide-react';
-import { apiClient, Post, Category, AdsBannersState, getServerBaseUrl } from '../services/api';
+import { apiClient, Post, Category, AdsBannersState, resolveAssetUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+
+const HOME_CACHE_KEY = 'umunsi_home_cache_v1';
+const HOME_CACHE_MAX_AGE_MS = 5 * 60_000;
+const DEFAULT_POST_IMAGE = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=1200&h=800&fit=crop';
+
+const readHomeCache = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = sessionStorage.getItem(HOME_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt?: number; posts?: Post[]; categories?: Category[]; featuredPost?: Post | null };
+    if (!parsed.savedAt || Date.now() - parsed.savedAt > HOME_CACHE_MAX_AGE_MS) return null;
+    if (!Array.isArray(parsed.posts) || parsed.posts.length === 0) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+};
 
 const Home = () => {
   const { user } = useAuth();
   // Ads should remain visible even for admin accounts so placements can be verified after updates.
   const showAds = true;
   const canSeeViews = user?.role === 'ADMIN';
+  const cachedHome = readHomeCache();
 
-  const [loading, setLoading] = useState(true);
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [featuredPost, setFeaturedPost] = useState<Post | null>(null);
+  const [loading, setLoading] = useState(!cachedHome);
+  const [posts, setPosts] = useState<Post[]>(cachedHome?.posts || []);
+  const [categories, setCategories] = useState<Category[]>(cachedHome?.categories || []);
+  const [featuredPost, setFeaturedPost] = useState<Post | null>(cachedHome?.featuredPost || null);
   const [activeTab, setActiveTab] = useState<string>('all');
   const [currentTime, setCurrentTime] = useState(new Date());
   const [email, setEmail] = useState('');
@@ -40,7 +59,7 @@ const Home = () => {
 
   const fetchHomeData = async () => {
     try {
-      setLoading(true);
+      if (!cachedHome) setLoading(true);
       
       const postsResponse = await apiClient.getPosts({ 
         status: 'PUBLISHED', 
@@ -56,6 +75,19 @@ const Home = () => {
       const categoriesResponse = await apiClient.getCategories({ includeInactive: false });
       if (categoriesResponse) {
         setCategories(categoriesResponse);
+      }
+
+      if (postsResponse?.data?.length) {
+        const featured = postsResponse.data.find(p => p.isFeatured || p.isPinned) || postsResponse.data[0];
+        sessionStorage.setItem(
+          HOME_CACHE_KEY,
+          JSON.stringify({
+            savedAt: Date.now(),
+            posts: postsResponse.data,
+            categories: categoriesResponse || [],
+            featuredPost: featured || null,
+          })
+        );
       }
     } catch (error) {
       console.error('Error fetching home data:', error);
@@ -79,17 +111,14 @@ const Home = () => {
   };
 
   const getImageUrl = (url?: string) => {
-    if (!url) return 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=600&h=400&fit=crop';
-    if (url.startsWith('http')) return url;
-    return `${getServerBaseUrl()}${url}`;
+    const resolved = resolveAssetUrl(url);
+    return resolved || DEFAULT_POST_IMAGE;
   };
 
   const getBannerImageUrl = (url?: string) => {
     if (!url) return '';
     const upgradedUrl = url.includes('/thumbnails/') ? url.replace('/thumbnails/', '/images/') : url;
-    if (upgradedUrl.startsWith('http://') || upgradedUrl.startsWith('https://') || upgradedUrl.startsWith('//')) return upgradedUrl;
-    if (upgradedUrl.startsWith('/')) return `${getServerBaseUrl()}${upgradedUrl}`;
-    return `${getServerBaseUrl()}/${upgradedUrl}`;
+    return resolveAssetUrl(upgradedUrl);
   };
 
   const getPostsByCategory = (categoryId: string) => {

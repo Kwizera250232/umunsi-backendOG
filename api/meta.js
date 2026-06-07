@@ -1,4 +1,4 @@
-const SITE_NAME = 'Umunsi';
+const SITE_NAME = 'Umunsi.com';
 const DEFAULT_DESCRIPTION = 'Tukugezaho amakuru yizewe kandi vuba. Kora konte udutere inkunga.';
 const DEFAULT_IMAGE = 'https://www.umunsi.com/uploads/media/thumbnails/thumb_files-1775474034682-900314784.jpg';
 const DEFAULT_USER_AGENT = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php)';

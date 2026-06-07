@@ -49,7 +49,7 @@ const buildAbsoluteUrl = (req, rawPath = '') => {
 };
 
 const buildMetaTags = (req, post) => {
-  const safeTitle = escapeHtml(post.metaTitle || post.title || 'Umunsi Website');
+  const safeTitle = escapeHtml(post.metaTitle || post.title || 'Umunsi.com');
   const descriptionSource = post.metaDescription || post.excerpt || stripHtml(post.content || '');
   const safeDescription = escapeHtml((descriptionSource || '').slice(0, 280));
   const imageUrl = buildAbsoluteUrl(req, post.featuredImage || '/images/logo.png');

@@ -19,6 +19,39 @@ export const getServerBaseUrl = (): string => {
   return typeof window !== 'undefined' ? window.location.origin : 'https://www.umunsi.com';
 };
 
+export const resolveAssetUrl = (url?: string | null): string => {
+  if (!url) return '';
+
+  const rawValue = String(url).trim();
+  if (!rawValue) return '';
+  if (rawValue.startsWith('data:') || rawValue.startsWith('blob:')) return rawValue;
+  if (rawValue.startsWith('//')) return `https:${rawValue}`;
+
+  const currentOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://www.umunsi.com';
+  const proxiedUploadsBase = `${currentOrigin}/api/uploads`;
+
+  const toProxiedUploadsUrl = (pathname: string, search = '', hash = '') =>
+    `${proxiedUploadsBase}${pathname.replace(/^\/uploads/, '')}${search}${hash}`;
+
+  if (rawValue.startsWith('http://') || rawValue.startsWith('https://')) {
+    try {
+      const parsed = new URL(rawValue);
+      const host = parsed.hostname.toLowerCase();
+      if ((host === 'umunsi.com' || host === 'www.umunsi.com') && parsed.pathname.startsWith('/uploads/')) {
+        return toProxiedUploadsUrl(parsed.pathname, parsed.search, parsed.hash);
+      }
+      return rawValue;
+    } catch {
+      return rawValue;
+    }
+  }
+
+  if (rawValue.startsWith('/uploads/')) return toProxiedUploadsUrl(rawValue);
+  if (rawValue.startsWith('/')) return `${currentOrigin}${rawValue}`;
+  if (rawValue.startsWith('uploads/')) return `${proxiedUploadsBase}/${rawValue.replace(/^uploads\//, '')}`;
+  return `${currentOrigin}/${rawValue.replace(/^\.?\//, '')}`;
+};
+
 // API Response Types
 export interface ApiResponse<T = any> {
   success: boolean;
