@@ -17,6 +17,10 @@ class UserController {
         sortOrder = 'desc'
       } = req.query;
 
+      const allowedSortFields = ['createdAt', 'updatedAt', 'username', 'email', 'firstName', 'lastName', 'role'];
+      const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+      const safeSortOrder = sortOrder === 'asc' ? 'asc' : 'desc';
+
       const skip = (parseInt(page) - 1) * parseInt(limit);
       const take = parseInt(limit);
 
@@ -65,7 +69,7 @@ class UserController {
             }
           },
           orderBy: {
-            [sortBy]: sortOrder
+            [safeSortBy]: safeSortOrder
           },
           skip,
           take
@@ -320,12 +324,22 @@ class UserController {
         });
       }
 
-      // Only admin can change roles
-      if (role && req.user.role !== 'ADMIN') {
-        return res.status(403).json({
-          error: 'Insufficient permissions',
-          details: 'Only administrators can change user roles'
-        });
+      // Only admin can change roles and sensitive fields
+      if (req.user.role !== 'ADMIN') {
+        if (role) {
+          return res.status(403).json({
+            error: 'Insufficient permissions',
+            details: 'Only administrators can change user roles'
+          });
+        }
+        const adminOnlyFields = ['isActive', 'isVerified', 'isPremium', 'premiumUntil'];
+        const attempted = adminOnlyFields.filter(f => req.body[f] !== undefined);
+        if (attempted.length > 0) {
+          return res.status(403).json({
+            error: 'Insufficient permissions',
+            details: `Only administrators can change: ${attempted.join(', ')}`
+          });
+        }
       }
 
       // Check if username already exists (if changed)

@@ -573,6 +573,10 @@ const getPosts = async (req, res) => {
       sortOrder = 'desc'
     } = req.query;
 
+    const allowedSortFields = ['createdAt', 'updatedAt', 'title', 'publishedAt', 'viewCount', 'likeCount'];
+    const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const safeSortOrder = sortOrder === 'asc' ? 'asc' : 'desc';
+
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const take = parseInt(limit);
 
@@ -601,7 +605,7 @@ const getPosts = async (req, res) => {
 
     // Build orderBy clause
     const orderBy = {};
-    orderBy[sortBy] = sortOrder;
+    orderBy[safeSortBy] = safeSortOrder;
 
     const [posts, total] = await Promise.all([
       prisma.post.findMany({

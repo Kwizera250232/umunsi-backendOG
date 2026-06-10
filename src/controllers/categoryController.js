@@ -18,6 +18,10 @@ class CategoryController {
     try {
       const { page = 1, limit = 10, search, sortBy = 'name', sortOrder = 'asc', includeInactive = 'false' } = req.query;
 
+      const allowedSortFields = ['name', 'slug', 'createdAt', 'updatedAt'];
+      const safeSortBy = allowedSortFields.includes(sortBy) ? sortBy : 'name';
+      const safeSortOrder = sortOrder === 'asc' ? 'asc' : 'desc';
+
       const skip = (parseInt(page) - 1) * parseInt(limit);
       const take = parseInt(limit);
 
@@ -46,7 +50,7 @@ class CategoryController {
             }
           },
           orderBy: {
-            [sortBy]: sortOrder
+            [safeSortBy]: safeSortOrder
           },
           skip,
           take

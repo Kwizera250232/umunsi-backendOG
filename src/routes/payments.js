@@ -377,6 +377,15 @@ router.get('/kpay/verify/:txRef', authenticateToken, async (req, res) => {
 
 router.post('/kpay/webhook', async (req, res) => {
   try {
+    const webhookSecret = (process.env.KPAY_WEBHOOK_SECRET || '').trim();
+    if (webhookSecret) {
+      const providedSecret = String(req.headers['x-kpay-secret'] || req.query.secret || '').trim();
+      if (providedSecret !== webhookSecret) {
+        console.warn('KPay webhook rejected: invalid secret');
+        return res.status(403).json({ error: 'Forbidden' });
+      }
+    }
+
     const refid = String(req.body?.refid || '').trim();
     const tid = String(req.body?.tid || '').trim();
 
