@@ -365,12 +365,16 @@ class NewsController {
       // Handle image update if new file uploaded
       let featuredImage = existingNews.featuredImage;
       if (req.file) {
-        // Delete old image if exists
+        // Delete old image if exists — warn on failure so the update still proceeds.
         if (existingNews.featuredImage) {
-          const oldImagePath = path.join(__dirname, '..', '..', existingNews.featuredImage);
-          if (fs.existsSync(oldImagePath)) {
-            fs.unlinkSync(oldImagePath);
-            console.log('🗑️ Old image deleted:', oldImagePath);
+          try {
+            const oldImagePath = path.join(__dirname, '..', '..', existingNews.featuredImage);
+            if (fs.existsSync(oldImagePath)) {
+              fs.unlinkSync(oldImagePath);
+              console.log('🗑️ Old image deleted:', oldImagePath);
+            }
+          } catch (unlinkError) {
+            console.warn('Could not delete old news image:', existingNews.featuredImage, unlinkError.message);
           }
         }
         featuredImage = `/uploads/articles/${req.file.filename}`;
@@ -507,12 +511,16 @@ class NewsController {
         });
       }
 
-      // Delete associated image file
+      // Delete associated image file — warn on failure so the DB record can still be removed.
       if (existingNews.featuredImage) {
-        const imagePath = path.join(__dirname, '..', '..', existingNews.featuredImage);
-        if (fs.existsSync(imagePath)) {
-          fs.unlinkSync(imagePath);
-          console.log('🗑️ Image file deleted:', imagePath);
+        try {
+          const imagePath = path.join(__dirname, '..', '..', existingNews.featuredImage);
+          if (fs.existsSync(imagePath)) {
+            fs.unlinkSync(imagePath);
+            console.log('🗑️ Image file deleted:', imagePath);
+          }
+        } catch (unlinkError) {
+          console.warn('Could not delete news image file:', existingNews.featuredImage, unlinkError.message);
         }
       }
 

@@ -617,10 +617,13 @@ class AuthController {
       const resetLink = `${baseUrl}/reset-password?token=${encodeURIComponent(resetToken)}`;
       const transport = getMailTransport();
 
+      const isDevOrAllowed = process.env.NODE_ENV === 'development' || canReturnResetLinkInResponse();
       const responseWithOptionalLink = {
         ...genericSuccessResponse,
-        resetToken,
-        ...(canReturnResetLinkInResponse() ? { resetLink } : {})
+        // Only expose the reset token in the response when explicitly allowed.
+        // In production this defaults to hidden so tokens are not leaked to the client.
+        ...(isDevOrAllowed ? { resetToken } : {}),
+        ...(isDevOrAllowed ? { resetLink } : {})
       };
 
       if (!transport) {
@@ -663,10 +666,13 @@ class AuthController {
           `
         });
       } catch (mailError) {
-        console.error('Failed to send reset email:', mailError);
+        console.error('Failed to send reset email to', email, ':', mailError.message);
+        // Return the same response shape so the caller can still use the reset
+        // link when explicitly opted-in, but never leak the code in production.
         return res.json({
           ...responseWithOptionalLink,
-          ...(canReturnResetLinkInResponse() ? { debugCode: verificationCode } : {})
+          ...(isDevOrAllowed ? { debugCode: verificationCode } : {}),
+          emailSent: false
         });
       }
 

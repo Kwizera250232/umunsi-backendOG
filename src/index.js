@@ -327,7 +327,11 @@ app.use(async (req, res, next) => {
         return next();
       }
     } catch (error) {
-      // Invalid token falls through to maintenance response
+      // Invalid/expired tokens fall through to maintenance response.
+      // Log unexpected errors (e.g. DB failures) so they are not silently lost.
+      if (error.name !== 'JsonWebTokenError' && error.name !== 'TokenExpiredError') {
+        console.error('Maintenance admin-bypass check failed:', error.message);
+      }
     }
   }
 
@@ -488,6 +492,23 @@ app.use((err, req, res, next) => {
     return res.status(401).json({
       error: 'Unauthorized',
       message: 'Invalid token or no token provided'
+    });
+  }
+
+  // Handle Multer file upload errors
+  if (err.name === 'MulterError') {
+    return res.status(400).json({
+      error: 'File Upload Error',
+      message: err.message
+    });
+  }
+
+  // Handle Prisma known-request errors (e.g. unique constraint violations, record not found)
+  if (err.code && err.code.startsWith('P')) {
+    const statusCode = err.code === 'P2025' ? 404 : 400;
+    return res.status(statusCode).json({
+      error: 'Database Error',
+      message: process.env.NODE_ENV === 'development' ? err.message : 'A database error occurred'
     });
   }
   
