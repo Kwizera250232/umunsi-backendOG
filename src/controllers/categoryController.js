@@ -1,16 +1,11 @@
-const { PrismaClient } = require('@prisma/client');
-
-const prisma = new PrismaClient();
-
-// Helper function to generate slug from name
-const generateSlug = (name) => {
-  return name
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-};
+const prisma = require('../database/prisma');
+const {
+  parsePagination,
+  buildPaginationResponse,
+  cleanWhere,
+  sendError,
+  generateSlug,
+} = require('../utils/controllerHelpers');
 
 class CategoryController {
   // Get all categories
@@ -18,8 +13,7 @@ class CategoryController {
     try {
       const { page = 1, limit = 10, search, sortBy = 'name', sortOrder = 'asc', includeInactive = 'false' } = req.query;
 
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      const take = parseInt(limit);
+      const { skip, take } = parsePagination(req.query);
 
       // Build where clause - only filter by isActive if includeInactive is false
       const where = {
@@ -30,12 +24,7 @@ class CategoryController {
         ] : undefined
       };
 
-      // Remove undefined values
-      Object.keys(where).forEach(key => {
-        if (where[key] === undefined) {
-          delete where[key];
-        }
-      });
+      cleanWhere(where);
 
       const [categories, total] = await Promise.all([
         prisma.category.findMany({
@@ -54,25 +43,15 @@ class CategoryController {
         prisma.category.count({ where })
       ]);
 
-      const totalPages = Math.ceil(total / take);
-
       res.json({
         success: true,
         categories,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems: total,
-          itemsPerPage: take
-        }
+        pagination: buildPaginationResponse(parsePagination(req.query).page, take, total)
       });
 
     } catch (error) {
       console.error('❌ Error fetching categories:', error);
-      res.status(500).json({
-        error: 'Failed to fetch categories',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch categories', error.message);
     }
   }
 
@@ -125,10 +104,7 @@ class CategoryController {
 
     } catch (error) {
       console.error('❌ Error fetching category:', error);
-      res.status(500).json({
-        error: 'Failed to fetch category',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch category', error.message);
     }
   }
 
@@ -182,10 +158,7 @@ class CategoryController {
 
     } catch (error) {
       console.error('❌ Error creating category:', error);
-      res.status(500).json({
-        error: 'Failed to create category',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to create category', error.message);
     }
   }
 
@@ -257,10 +230,7 @@ class CategoryController {
 
     } catch (error) {
       console.error('❌ Error updating category:', error);
-      res.status(500).json({
-        error: 'Failed to update category',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to update category', error.message);
     }
   }
 
@@ -313,10 +283,7 @@ class CategoryController {
 
     } catch (error) {
       console.error('❌ Error deleting category:', error);
-      res.status(500).json({
-        error: 'Failed to delete category',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to delete category', error.message);
     }
   }
 
@@ -349,10 +316,7 @@ class CategoryController {
 
     } catch (error) {
       console.error('❌ Error fetching category stats:', error);
-      res.status(500).json({
-        error: 'Failed to fetch category statistics',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch category statistics', error.message);
     }
   }
 }

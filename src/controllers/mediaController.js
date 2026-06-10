@@ -1,10 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
 const sharp = require('sharp');
-
-const prisma = new PrismaClient();
+const prisma = require('../database/prisma');
 const uploadsRoot = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads'));
 const mediaUploadDir = path.join(uploadsRoot, 'media');
 

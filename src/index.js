@@ -8,7 +8,7 @@ const rateLimit = require('express-rate-limit');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('./database/prisma');
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const newsRoutes = require('./routes/news');
@@ -24,7 +24,6 @@ const { DEFAULT_MESSAGE, getMaintenanceState } = require('./utils/maintenance');
 const { getAdsBannersState } = require('./utils/adsBanners');
 
 const app = express();
-const prisma = new PrismaClient();
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const frontendBuildPath = path.join(__dirname, '../public');
 const uploadsPath = path.resolve(process.env.UPLOAD_DIR || path.join(__dirname, '../uploads'));

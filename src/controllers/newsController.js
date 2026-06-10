@@ -1,26 +1,17 @@
-const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
-
-const prisma = new PrismaClient();
-
-const isAdminRequest = (req) => req.user && req.user.role === 'ADMIN';
-
-const sanitizeNewsForRole = (news, isAdmin) => {
-  if (isAdmin || !news) return news;
-  const { viewCount, ...rest } = news;
-  return rest;
-};
-
-// Helper function to generate slug
-const generateSlug = (title) => {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .trim();
-};
+const prisma = require('../database/prisma');
+const {
+  parsePagination,
+  buildPaginationResponse,
+  cleanWhere,
+  parseBoolean,
+  sendError,
+  isAdminRequest,
+  sanitizeForRole,
+  generateSlug,
+} = require('../utils/controllerHelpers');
+const { NEWS_INCLUDE } = require('../utils/prismaSelects');
 
 class NewsController {
   // Create new news article
@@ -90,9 +81,9 @@ class NewsController {
       }
 
       // Parse boolean values
-      const parsedIsFeatured = isFeatured === 'true' || isFeatured === true;
-      const parsedIsBreaking = isBreaking === 'true' || isBreaking === true;
-      const parsedIsTrending = isTrending === 'true' || isTrending === true;
+      const parsedIsFeatured = parseBoolean(isFeatured, false);
+      const parsedIsBreaking = parseBoolean(isBreaking, false);
+      const parsedIsTrending = parseBoolean(isTrending, false);
 
       // Create news article
       const news = await prisma.news.create({
@@ -110,26 +101,7 @@ class NewsController {
           authorId: req.user.id,
           categoryId: categoryId
         },
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-              avatar: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true,
-              icon: true
-            }
-          }
-        }
+        include: NEWS_INCLUDE
       });
 
       console.log('✅ News article created successfully:', news.id);
@@ -147,10 +119,7 @@ class NewsController {
       console.error('❌ Request file:', req.file);
       console.error('❌ Request user:', req.user);
       
-      res.status(500).json({
-        error: 'Failed to create news article',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to create news article', error.message);
     }
   }
 
@@ -170,15 +139,14 @@ class NewsController {
         sortOrder = 'desc'
       } = req.query;
 
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      const take = parseInt(limit);
+      const { skip, take } = parsePagination(req.query);
 
       // Build where clause
       const where = {
         status: status === 'ALL' ? undefined : status.toUpperCase(),
-        isFeatured: featured === 'true' ? true : featured === 'false' ? false : undefined,
-        isBreaking: breaking === 'true' ? true : breaking === 'false' ? false : undefined,
-        isTrending: trending === 'true' ? true : trending === 'false' ? false : undefined,
+        isFeatured: parseBoolean(featured, undefined),
+        isBreaking: parseBoolean(breaking, undefined),
+        isTrending: parseBoolean(trending, undefined),
         category: category ? { slug: category } : undefined,
         OR: search ? [
           { title: { contains: search, mode: 'insensitive' } },
@@ -187,36 +155,12 @@ class NewsController {
         ] : undefined
       };
 
-      // Remove undefined values
-      Object.keys(where).forEach(key => {
-        if (where[key] === undefined) {
-          delete where[key];
-        }
-      });
+      cleanWhere(where);
 
       const [news, total] = await Promise.all([
         prisma.news.findMany({
           where,
-          include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                firstName: true,
-                lastName: true,
-                avatar: true
-              }
-            },
-            category: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                color: true,
-                icon: true
-              }
-            }
-          },
+          include: NEWS_INCLUDE,
           orderBy: {
             [sortBy]: sortOrder
           },
@@ -226,20 +170,17 @@ class NewsController {
         prisma.news.count({ where })
       ]);
 
-      const totalPages = Math.ceil(total / take);
-      const hasNextPage = page < totalPages;
-      const hasPrevPage = page > 1;
+      const pag = buildPaginationResponse(parsePagination(req.query).page, take, total);
+      const hasNextPage = pag.currentPage < pag.totalPages;
+      const hasPrevPage = pag.currentPage > 1;
 
-      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+      const safeNews = news.map((item) => sanitizeForRole(item, isAdminRequest(req)));
 
       res.json({
         success: true,
         news: safeNews,
         pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems: total,
-          itemsPerPage: take,
+          ...pag,
           hasNextPage,
           hasPrevPage
         }
@@ -247,10 +188,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error fetching news:', error);
-      res.status(500).json({
-        error: 'Failed to fetch news articles',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch news articles', error.message);
     }
   }
 
@@ -266,26 +204,7 @@ class NewsController {
             { slug: id }
           ]
         },
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-              avatar: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true,
-              icon: true
-            }
-          }
-        }
+        include: NEWS_INCLUDE
       });
 
       if (!news) {
@@ -301,7 +220,7 @@ class NewsController {
         data: { viewCount: { increment: 1 } }
       });
 
-      const safeNews = sanitizeNewsForRole(updatedNews, isAdminRequest(req));
+      const safeNews = sanitizeForRole(updatedNews, isAdminRequest(req));
 
       res.json({
         success: true,
@@ -310,10 +229,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error fetching news article:', error);
-      res.status(500).json({
-        error: 'Failed to fetch news article',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch news article', error.message);
     }
   }
 
@@ -413,9 +329,9 @@ class NewsController {
       }
 
       // Parse boolean values
-      const parsedIsFeatured = isFeatured !== undefined ? (isFeatured === 'true' || isFeatured === true) : existingNews.isFeatured;
-      const parsedIsBreaking = isBreaking !== undefined ? (isBreaking === 'true' || isBreaking === true) : existingNews.isBreaking;
-      const parsedIsTrending = isTrending !== undefined ? (isTrending === 'true' || isTrending === true) : existingNews.isTrending;
+      const parsedIsFeatured = parseBoolean(isFeatured, existingNews.isFeatured);
+      const parsedIsBreaking = parseBoolean(isBreaking, existingNews.isBreaking);
+      const parsedIsTrending = parseBoolean(isTrending, existingNews.isTrending);
 
       // Update news article
       const updatedNews = await prisma.news.update({
@@ -434,26 +350,7 @@ class NewsController {
           categoryId: categoryId || existingNews.categoryId,
           updatedAt: new Date()
         },
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-              avatar: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true,
-              icon: true
-            }
-          }
-        }
+        include: NEWS_INCLUDE
       });
 
       console.log('✅ News article updated successfully:', updatedNews.id);
@@ -466,10 +363,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error updating news article:', error);
-      res.status(500).json({
-        error: 'Failed to update news article',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to update news article', error.message);
     }
   }
 
@@ -530,10 +424,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error deleting news article:', error);
-      res.status(500).json({
-        error: 'Failed to delete news article',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to delete news article', error.message);
     }
   }
 
@@ -545,31 +436,14 @@ class NewsController {
           isFeatured: true,
           status: 'PUBLISHED'
         },
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true
-            }
-          }
-        },
+        include: NEWS_INCLUDE,
         orderBy: {
           publishedAt: 'desc'
         },
         take: 10
       });
 
-      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+      const safeNews = news.map((item) => sanitizeForRole(item, isAdminRequest(req)));
 
       res.json({
         success: true,
@@ -578,10 +452,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error fetching featured news:', error);
-      res.status(500).json({
-        error: 'Failed to fetch featured news',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch featured news', error.message);
     }
   }
 
@@ -593,31 +464,14 @@ class NewsController {
           isBreaking: true,
           status: 'PUBLISHED'
         },
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true
-            }
-          }
-        },
+        include: NEWS_INCLUDE,
         orderBy: {
           publishedAt: 'desc'
         },
         take: 5
       });
 
-      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+      const safeNews = news.map((item) => sanitizeForRole(item, isAdminRequest(req)));
 
       res.json({
         success: true,
@@ -626,10 +480,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error fetching breaking news:', error);
-      res.status(500).json({
-        error: 'Failed to fetch breaking news',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch breaking news', error.message);
     }
   }
 
@@ -641,24 +492,7 @@ class NewsController {
           isTrending: true,
           status: 'PUBLISHED'
         },
-        include: {
-          author: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true
-            }
-          }
-        },
+        include: NEWS_INCLUDE,
         orderBy: [
           { viewCount: 'desc' },
           { publishedAt: 'desc' }
@@ -666,7 +500,7 @@ class NewsController {
         take: 10
       });
 
-      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+      const safeNews = news.map((item) => sanitizeForRole(item, isAdminRequest(req)));
 
       res.json({
         success: true,
@@ -675,10 +509,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error fetching trending news:', error);
-      res.status(500).json({
-        error: 'Failed to fetch trending news',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch trending news', error.message);
     }
   }
 
@@ -688,67 +519,37 @@ class NewsController {
       const { authorId } = req.params;
       const { page = 1, limit = 10 } = req.query;
 
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      const take = parseInt(limit);
+      const { skip, take } = parsePagination(req.query);
+
+      const authorWhere = {
+        authorId,
+        status: 'PUBLISHED'
+      };
 
       const [news, total] = await Promise.all([
         prisma.news.findMany({
-          where: {
-            authorId,
-            status: 'PUBLISHED'
-          },
-          include: {
-            author: {
-              select: {
-                id: true,
-                username: true,
-                firstName: true,
-                lastName: true
-              }
-            },
-            category: {
-              select: {
-                id: true,
-                name: true,
-                slug: true,
-                color: true
-              }
-            }
-          },
+          where: authorWhere,
+          include: NEWS_INCLUDE,
           orderBy: {
             publishedAt: 'desc'
           },
           skip,
           take
         }),
-        prisma.news.count({
-          where: {
-            authorId,
-            status: 'PUBLISHED'
-          }
-        })
+        prisma.news.count({ where: authorWhere })
       ]);
 
-      const totalPages = Math.ceil(total / take);
-      const safeNews = news.map((item) => sanitizeNewsForRole(item, isAdminRequest(req)));
+      const safeNews = news.map((item) => sanitizeForRole(item, isAdminRequest(req)));
 
       res.json({
         success: true,
         news: safeNews,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems: total,
-          itemsPerPage: take
-        }
+        pagination: buildPaginationResponse(parsePagination(req.query).page, take, total)
       });
 
     } catch (error) {
       console.error('❌ Error fetching news by author:', error);
-      res.status(500).json({
-        error: 'Failed to fetch news by author',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch news by author', error.message);
     }
   }
 
@@ -822,10 +623,7 @@ class NewsController {
 
     } catch (error) {
       console.error('❌ Error liking/unliking news:', error);
-      res.status(500).json({
-        error: 'Failed to like/unlike article',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to like/unlike article', error.message);
     }
   }
 
