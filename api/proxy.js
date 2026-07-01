@@ -1,4 +1,4 @@
-import http from 'node:http';
+import https from 'node:https';
 
 const BACKEND_IP = '93.127.186.217';
 const BACKEND_HOST = 'api.umunsi.com';
@@ -22,13 +22,15 @@ async function readRawBody(req) {
 
 function proxyRequest({ method, path, headers, body }) {
   return new Promise((resolve, reject) => {
-    const upstream = http.request(
+    const upstream = https.request(
       {
         hostname: BACKEND_IP,
-        port: 80,
+        port: 443,
         method,
         path,
         headers,
+        servername: BACKEND_HOST,
+        rejectUnauthorized: false,
       },
       (response) => {
         const chunks = [];

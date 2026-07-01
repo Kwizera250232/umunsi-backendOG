@@ -1,4 +1,4 @@
-const BACKEND_BASE_URL = 'http://93.127.186.217';
+const BACKEND_BASE_URL = 'https://api.umunsi.com';
 const BACKEND_HOST = 'api.umunsi.com';
 const DEFAULT_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0 Safari/537.36';
 
