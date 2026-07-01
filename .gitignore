@@ -3,6 +3,6 @@ node_modules
 .env
 .env.local
 .vercel/
-dist/
 
 /generated/prisma
+.vercel
