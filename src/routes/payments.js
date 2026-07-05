@@ -1,10 +1,9 @@
 const express = require('express');
 const crypto = require('crypto');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../database/prisma');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 const PREMIUM_SUPPORT_AMOUNT_RWF = Number(process.env.PREMIUM_SUPPORT_AMOUNT_RWF || 500);
 const PREMIUM_DURATION_DAYS = Number(process.env.PREMIUM_DURATION_DAYS || 30);

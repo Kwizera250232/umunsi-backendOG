@@ -1,36 +1,11 @@
-const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const nodemailer = require('nodemailer');
-
-const prisma = new PrismaClient();
-
-const getMailTransport = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass }
-  });
-};
+const prisma = require('../database/prisma');
+const { getMailTransport, getAppBaseUrl } = require('../utils/controllerHelpers');
 
 const canReturnResetLinkInResponse = () => {
   const flag = String(process.env.ALLOW_PASSWORD_RESET_LINK_RESPONSE || '').toLowerCase();
   return flag === '1' || flag === 'true' || flag === 'yes';
-};
-
-const getAppBaseUrl = () => {
-  const configuredUrl = process.env.FRONTEND_URL || process.env.CLIENT_URL || process.env.APP_URL;
-  return (configuredUrl || 'https://umunsi.com').replace(/\/$/, '');
 };
 
 const buildPasswordResetToken = (user) => {

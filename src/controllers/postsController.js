@@ -1,9 +1,8 @@
-const { PrismaClient } = require('@prisma/client');
 const fs = require('fs');
 const path = require('path');
 const slugify = require('slugify');
 const https = require('https');
-const nodemailer = require('nodemailer');
+const prisma = require('../database/prisma');
 const { incrementDailyViews } = require('../utils/viewStats');
 const {
   getHighestReachedMilestone,
@@ -15,8 +14,15 @@ const {
   incrementPostShareStats,
   normalizePlatform,
 } = require('../utils/postShareStats');
-
-const prisma = new PrismaClient();
+const {
+  parsePagination,
+  buildPaginationResponse,
+  isAdminRequest,
+  sanitizeForRole,
+  getAppBaseUrl,
+  getMailTransport,
+} = require('../utils/controllerHelpers');
+const { POST_INCLUDE } = require('../utils/prismaSelects');
 const MILESTONE_EMAIL_TIMEOUT_MS = Number(process.env.MILESTONE_EMAIL_TIMEOUT_MS || 10000);
 
 const isMilestoneEmailEnabled = () => {
@@ -83,25 +89,8 @@ const sendViaMailtrapApi = async ({ token, from, to, subject, text, html, catego
   throw new Error(`Mailtrap API error (${bearerResult.statusCode}): ${bearerResult.body}`);
 };
 
-const getMailTransport = () => {
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT || 587);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASSWORD || process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) {
-    return null;
-  }
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-    connectionTimeout: MILESTONE_EMAIL_TIMEOUT_MS,
-    greetingTimeout: MILESTONE_EMAIL_TIMEOUT_MS,
-    socketTimeout: MILESTONE_EMAIL_TIMEOUT_MS,
-  });
+const getMilestoneMailTransport = () => {
+  return getMailTransport({ timeout: MILESTONE_EMAIL_TIMEOUT_MS });
 };
 
 const isEnabledFlag = (value, defaultValue = true) => {
@@ -154,7 +143,7 @@ const buildMailtrapSender = () => {
 };
 
 const buildSmtpSender = () => {
-  const transport = getMailTransport();
+  const transport = getMilestoneMailTransport();
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
   const senderName = process.env.MAILTRAP_SENDER_NAME || 'Ubutumwa bwa Umunsi';
   if (!transport || !fromAddress) return null;
@@ -218,10 +207,7 @@ const getMilestoneRecipientMode = () => {
   return 'author_admin';
 };
 
-const getFrontendBaseUrl = () => {
-  const configured = process.env.FRONTEND_URL || process.env.CLIENT_URL || process.env.APP_URL;
-  return (configured || 'https://umunsi.com').replace(/\/$/, '');
-};
+
 
 const formatMilestoneDate = (date = new Date()) => {
   return new Intl.DateTimeFormat('en-CA', {
@@ -323,7 +309,7 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
     }
 
     const articlePath = post.slug ? `/post/${post.slug}` : `/article/${post.id}`;
-    const articleUrl = `${getFrontendBaseUrl()}${articlePath}`;
+    const articleUrl = `${getAppBaseUrl()}${articlePath}`;
     const authorName = [author?.firstName, author?.lastName].filter(Boolean).join(' ') || author?.username || 'Author';
     const milestoneDate = formatMilestoneDate(new Date());
     const supportEmail = process.env.MILESTONE_SUPPORT_EMAIL || process.env.SMTP_FROM || process.env.SMTP_USER || 'info@umunsi.com';
@@ -372,7 +358,7 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
   }
 };
 
-const isAdminRequest = (req) => req.user && req.user.role === 'ADMIN';
+
 
 const extractFirstImageFromContent = (content = '') => {
   const match = String(content).match(/<img[^>]*src=["']([^"']+)["'][^>]*>/i);
@@ -439,11 +425,7 @@ const withShareStats = (post) => {
   };
 };
 
-const sanitizePostForRole = (post, isAdmin) => {
-  if (isAdmin) return post;
-  const { viewCount, ...rest } = post;
-  return rest;
-};
+
 
 const hasPremiumAccess = async (req, postId = null) => {
   if (!req.user) return false;
@@ -476,29 +458,7 @@ const getPremiumDashboard = async (req, res) => {
         status: 'PUBLISHED',
         isPremium: true
       },
-      include: {
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            avatar: true,
-            profileUrl: true,
-            role: true,
-            isVerified: true,
-            createdAt: true
-          }
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            color: true
-          }
-        }
-      },
+      include: POST_INCLUDE,
       orderBy: { publishedAt: 'desc' }
     });
 
@@ -609,29 +569,7 @@ const getPosts = async (req, res) => {
         skip,
         take,
         orderBy,
-        include: {
-          author: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              username: true,
-              avatar: true,
-              profileUrl: true,
-              role: true,
-              isVerified: true,
-              createdAt: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true
-            }
-          }
-        }
+        include: POST_INCLUDE
       }),
       prisma.post.count({ where })
     ]);
@@ -643,7 +581,7 @@ const getPosts = async (req, res) => {
         tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
       };
 
-      return sanitizePostForRole(mappedPost, isAdminRequest(req));
+      return sanitizeForRole(mappedPost, isAdminRequest(req));
     });
 
     res.json({
@@ -673,58 +611,14 @@ const getPost = async (req, res) => {
     // Try to find by ID first, then by slug
     let post = await prisma.post.findUnique({
       where: { id },
-      include: {
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            avatar: true,
-            profileUrl: true,
-            role: true,
-            isVerified: true,
-            createdAt: true
-          }
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            color: true
-          }
-        }
-      }
+      include: POST_INCLUDE
     });
 
     // If not found by ID, try to find by slug
     if (!post) {
       post = await prisma.post.findUnique({
         where: { slug: id },
-        include: {
-          author: {
-            select: {
-              id: true,
-              firstName: true,
-              lastName: true,
-              username: true,
-              avatar: true,
-              profileUrl: true,
-              role: true,
-              isVerified: true,
-              createdAt: true
-            }
-          },
-          category: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
-              color: true
-            }
-          }
-        }
+        include: POST_INCLUDE
       });
     }
 
@@ -758,7 +652,7 @@ const getPost = async (req, res) => {
       tags: post.tags ? post.tags.split(',').map(tag => tag.trim()).filter(tag => tag) : []
     };
 
-    const safePost = sanitizePostForRole(postWithTagsArray, isAdminRequest(req));
+    const safePost = sanitizeForRole(postWithTagsArray, isAdminRequest(req));
 
     const canAccessPremium = await hasPremiumAccess(req, post.id);
     const isLocked = Boolean(post.isPremium) && !canAccessPremium;
@@ -881,29 +775,7 @@ const createPost = async (req, res) => {
         metaDescription,
         authorId
       },
-      include: {
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            avatar: true,
-            profileUrl: true,
-            role: true,
-            isVerified: true,
-            createdAt: true
-          }
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            color: true
-          }
-        }
-      }
+      include: POST_INCLUDE
     });
 
     // Convert tags from string to array
@@ -1001,29 +873,7 @@ const updatePost = async (req, res) => {
         ...(metaTitle !== undefined && { metaTitle }),
         ...(metaDescription !== undefined && { metaDescription })
       },
-      include: {
-        author: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            username: true,
-            avatar: true,
-            profileUrl: true,
-            role: true,
-            isVerified: true,
-            createdAt: true
-          }
-        },
-        category: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            color: true
-          }
-        }
-      }
+      include: POST_INCLUDE
     });
 
     // Convert tags from string to array

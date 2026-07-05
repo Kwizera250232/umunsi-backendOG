@@ -1,7 +1,11 @@
-const { PrismaClient } = require('@prisma/client');
 const bcrypt = require('bcryptjs');
-
-const prisma = new PrismaClient();
+const prisma = require('../database/prisma');
+const {
+  parsePagination,
+  buildPaginationResponse,
+  cleanWhere,
+  sendError,
+} = require('../utils/controllerHelpers');
 
 class UserController {
   // Get all users with pagination and filters
@@ -17,8 +21,7 @@ class UserController {
         sortOrder = 'desc'
       } = req.query;
 
-      const skip = (parseInt(page) - 1) * parseInt(limit);
-      const take = parseInt(limit);
+      const { skip, take } = parsePagination(req.query);
 
       // Build where clause
       const where = {
@@ -32,12 +35,7 @@ class UserController {
         ] : undefined
       };
 
-      // Remove undefined values
-      Object.keys(where).forEach(key => {
-        if (where[key] === undefined) {
-          delete where[key];
-        }
-      });
+      cleanWhere(where);
 
       const [users, total] = await Promise.all([
         prisma.user.findMany({
@@ -73,25 +71,15 @@ class UserController {
         prisma.user.count({ where })
       ]);
 
-      const totalPages = Math.ceil(total / take);
-
       res.json({
         success: true,
         users,
-        pagination: {
-          currentPage: parseInt(page),
-          totalPages,
-          totalItems: total,
-          itemsPerPage: take
-        }
+        pagination: buildPaginationResponse(parsePagination(req.query).page, take, total)
       });
 
     } catch (error) {
       console.error('❌ Error fetching users:', error);
-      res.status(500).json({
-        error: 'Failed to fetch users',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch users', error.message);
     }
   }
 
@@ -158,10 +146,7 @@ class UserController {
 
     } catch (error) {
       console.error('❌ Error fetching user:', error);
-      res.status(500).json({
-        error: 'Failed to fetch user',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch user', error.message);
     }
   }
 
@@ -273,10 +258,7 @@ class UserController {
 
     } catch (error) {
       console.error('❌ Error creating user:', error);
-      res.status(500).json({
-        error: 'Failed to create user',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to create user', error.message);
     }
   }
 
@@ -412,10 +394,7 @@ class UserController {
 
     } catch (error) {
       console.error('❌ Error updating user:', error);
-      res.status(500).json({
-        error: 'Failed to update user',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to update user', error.message);
     }
   }
 
@@ -479,10 +458,7 @@ class UserController {
 
     } catch (error) {
       console.error('❌ Error deleting user:', error);
-      res.status(500).json({
-        error: 'Failed to delete user',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to delete user', error.message);
     }
   }
 
@@ -526,10 +502,7 @@ class UserController {
 
     } catch (error) {
       console.error('❌ Error fetching user stats:', error);
-      res.status(500).json({
-        error: 'Failed to fetch user statistics',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to fetch user statistics', error.message);
     }
   }
 
@@ -598,10 +571,7 @@ class UserController {
 
     } catch (error) {
       console.error('❌ Error updating password:', error);
-      res.status(500).json({
-        error: 'Failed to update password',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      });
+      sendError(res, 500, 'Failed to update password', error.message);
     }
   }
 }

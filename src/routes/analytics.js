@@ -1,10 +1,9 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../database/prisma');
 const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // Track page view
 router.post('/pageview', [
