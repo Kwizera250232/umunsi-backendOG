@@ -28,7 +28,8 @@ const readState = () => {
     }
 
     return JSON.parse(fs.readFileSync(DIGEST_STATE_PATH, 'utf8'));
-  } catch {
+  } catch (error) {
+    console.warn('Weekly digest: could not read state file, using defaults:', error.message);
     return { lastSentFridayKey: null, history: [] };
   }
 };

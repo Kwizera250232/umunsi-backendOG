@@ -57,6 +57,7 @@ const safeParseJson = (value) => {
   try {
     return JSON.parse(value);
   } catch (error) {
+    console.warn('safeParseJson: failed to parse stored metadata:', error.message);
     return {};
   }
 };
@@ -311,7 +312,9 @@ router.post('/kpay/initialize', authenticateToken, async (req, res) => {
           status: 'FAILED',
           errorMessage: error.message
         }
-      }).catch(() => null);
+      }).catch((updateError) => {
+        console.error('Failed to mark payment as FAILED in DB:', paymentRecord.id, updateError.message);
+      });
     }
 
     return res.status(500).json({
@@ -404,7 +407,13 @@ router.post('/kpay/webhook', async (req, res) => {
       reply: 'OK'
     });
   } catch (error) {
-    console.error('KPay webhook error:', error);
+    // Webhooks must always return 200 to prevent provider retries, but log the
+    // error with context so payment sync failures are visible in server logs.
+    console.error('KPay webhook processing error for refid=%s tid=%s:',
+      String(req.body?.refid || '').trim(),
+      String(req.body?.tid || '').trim(),
+      error.message
+    );
     return res.status(200).json({
       tid: String(req.body?.tid || '').trim(),
       refid: String(req.body?.refid || '').trim(),

@@ -82,7 +82,7 @@ const generateThumbnail = async (filePath, filename) => {
 
     return `/uploads/media/thumbnails/${thumbnailFilename}`;
   } catch (error) {
-    console.error('Error generating thumbnail:', error);
+    console.error('Error generating thumbnail for', filename, ':', error.message);
     return null;
   }
 };
@@ -321,17 +321,29 @@ const deleteMediaFile = async (req, res) => {
       });
     }
 
-    // Delete physical files
+    // Delete physical files — log warnings but proceed with DB deletion so
+    // the database record does not become orphaned.
+    const fileWarnings = [];
     try {
       const filePath = path.join(mediaUploadDir, mediaFile.filename);
       await fs.unlink(filePath);
+    } catch (fileError) {
+      if (fileError.code !== 'ENOENT') {
+        console.warn('Could not delete media file from disk:', mediaFile.filename, fileError.message);
+        fileWarnings.push(mediaFile.filename);
+      }
+    }
 
-      if (mediaFile.thumbnailUrl) {
+    if (mediaFile.thumbnailUrl) {
+      try {
         const thumbnailPath = path.join(mediaUploadDir, 'thumbnails', path.basename(mediaFile.thumbnailUrl));
         await fs.unlink(thumbnailPath);
+      } catch (thumbError) {
+        if (thumbError.code !== 'ENOENT') {
+          console.warn('Could not delete thumbnail from disk:', mediaFile.thumbnailUrl, thumbError.message);
+          fileWarnings.push(path.basename(mediaFile.thumbnailUrl));
+        }
       }
-    } catch (fileError) {
-      console.error('Error deleting physical files:', fileError);
     }
 
     // Delete from database
@@ -339,10 +351,16 @@ const deleteMediaFile = async (req, res) => {
       where: { id }
     });
 
-    res.json({
+    const response = {
       success: true,
       message: 'Media file deleted successfully'
-    });
+    };
+
+    if (fileWarnings.length > 0) {
+      response.warnings = [`Could not remove ${fileWarnings.length} physical file(s) from disk`];
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Error deleting media file:', error);
     res.status(500).json({
@@ -368,18 +386,28 @@ const deleteMediaFiles = async (req, res) => {
       where: { id: { in: ids } }
     });
 
-    // Delete physical files
+    // Delete physical files — log warnings but continue so DB records are cleaned up.
+    const fileWarnings = [];
     for (const mediaFile of mediaFiles) {
       try {
         const filePath = path.join(mediaUploadDir, mediaFile.filename);
         await fs.unlink(filePath);
+      } catch (fileError) {
+        if (fileError.code !== 'ENOENT') {
+          console.warn('Bulk delete: could not remove file', mediaFile.filename, fileError.message);
+          fileWarnings.push(mediaFile.filename);
+        }
+      }
 
-        if (mediaFile.thumbnailUrl) {
+      if (mediaFile.thumbnailUrl) {
+        try {
           const thumbnailPath = path.join(mediaUploadDir, 'thumbnails', path.basename(mediaFile.thumbnailUrl));
           await fs.unlink(thumbnailPath);
+        } catch (thumbError) {
+          if (thumbError.code !== 'ENOENT') {
+            console.warn('Bulk delete: could not remove thumbnail', mediaFile.thumbnailUrl, thumbError.message);
+          }
         }
-      } catch (fileError) {
-        console.error('Error deleting physical files:', fileError);
       }
     }
 
@@ -388,10 +416,16 @@ const deleteMediaFiles = async (req, res) => {
       where: { id: { in: ids } }
     });
 
-    res.json({
+    const response = {
       success: true,
       message: `${ids.length} file(s) deleted successfully`
-    });
+    };
+
+    if (fileWarnings.length > 0) {
+      response.warnings = [`Could not remove ${fileWarnings.length} physical file(s) from disk`];
+    }
+
+    res.json(response);
   } catch (error) {
     console.error('Error deleting media files:', error);
     res.status(500).json({

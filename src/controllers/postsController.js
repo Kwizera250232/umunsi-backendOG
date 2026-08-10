@@ -368,7 +368,11 @@ const notifyPostMilestoneIfNeeded = async (post, views) => {
 
     markMilestoneAsSent(post.id, reachedMilestone);
   } catch (error) {
-    console.error('Post milestone email notification failed:', error?.message || error);
+    // Log with enough context to diagnose which stage failed (DB query, mail send, etc.)
+    console.error(
+      `Post milestone notification failed for post ${post?.id || '?'} at ${views} views:`,
+      error?.message || error
+    );
   }
 };
 
@@ -395,7 +399,8 @@ const resolveLocalUploadFile = (rawPath = '') => {
 
     if (!pathname.startsWith('/uploads/')) return null;
     return path.join(uploadsRoot, pathname.replace(/^\/uploads\/?/, ''));
-  } catch {
+  } catch (error) {
+    console.warn('resolveLocalUploadFile: failed to parse path', rawPath, error.message);
     return null;
   }
 };

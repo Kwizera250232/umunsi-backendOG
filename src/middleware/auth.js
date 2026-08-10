@@ -125,7 +125,11 @@ const optionalAuth = async (req, res, next) => {
     
     next();
   } catch (error) {
-    // Continue without authentication if token is invalid
+    // Log unexpected errors (e.g. database failures) so they are not silently lost.
+    // Token-related issues (expired, malformed) are expected and kept at debug level.
+    if (error.name !== 'JsonWebTokenError' && error.name !== 'TokenExpiredError') {
+      console.error('optionalAuth middleware error:', error);
+    }
     next();
   }
 };
