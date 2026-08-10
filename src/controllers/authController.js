@@ -5,6 +5,14 @@ const nodemailer = require('nodemailer');
 
 const prisma = new PrismaClient();
 
+const requireJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is not set. Refusing to start with an insecure default.');
+  }
+  return secret;
+};
+
 const getMailTransport = () => {
   const host = process.env.SMTP_HOST;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -34,7 +42,7 @@ const getAppBaseUrl = () => {
 };
 
 const buildPasswordResetToken = (user) => {
-  const secret = process.env.JWT_SECRET || 'your-secret-key';
+  const secret = requireJwtSecret();
   const passwordFingerprint = user.password.slice(-12);
 
   return jwt.sign(
@@ -49,7 +57,7 @@ const buildPasswordResetToken = (user) => {
 };
 
 const verifyPasswordResetToken = (token) => {
-  const secret = process.env.JWT_SECRET || 'your-secret-key';
+  const secret = requireJwtSecret();
   return jwt.verify(token, secret);
 };
 
@@ -175,7 +183,7 @@ class AuthController {
           role: user.role,
           username: user.username
         },
-        process.env.JWT_SECRET || 'your-secret-key',
+        requireJwtSecret(),
         { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
       );
 
@@ -341,7 +349,7 @@ class AuthController {
           role: user.role,
           username: user.username
         },
-        process.env.JWT_SECRET || 'your-secret-key',
+        requireJwtSecret(),
         { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
       );
 
@@ -610,7 +618,7 @@ class AuthController {
           type: 'password-reset-code',
           fp: user.password.slice(-12)
         },
-        process.env.JWT_SECRET || 'your-secret-key',
+        requireJwtSecret(),
         { expiresIn: process.env.PASSWORD_RESET_EXPIRES_IN || '30m' }
       );
       const baseUrl = getAppBaseUrl();
@@ -619,8 +627,7 @@ class AuthController {
 
       const responseWithOptionalLink = {
         ...genericSuccessResponse,
-        resetToken,
-        ...(canReturnResetLinkInResponse() ? { resetLink } : {})
+        ...(canReturnResetLinkInResponse() ? { resetToken, resetLink } : {})
       };
 
       if (!transport) {
@@ -793,7 +800,7 @@ class AuthController {
           role: req.user.role,
           username: req.user.username
         },
-        process.env.JWT_SECRET || 'your-secret-key',
+        requireJwtSecret(),
         { expiresIn: '24h' }
       );
 
